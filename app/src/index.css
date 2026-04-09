@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-stone-50 text-secondary antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  #root {
+    @apply min-h-screen w-full flex flex-col;
+  }
+}
+
+@layer utilities {
+  .pb-safe {
+    /* Accounts for mobile devices with safe interaction areas */
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+  }
+}
