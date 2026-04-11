@@ -29,12 +29,10 @@ export default function LoginScreen() {
           </div>
         </div>
 
-        <div className="mt-6 flex flex-col items-center">
-          <p className="text-xs text-stone-400 max-w-[200px]">A Google prompt will appear perfectly on your screen.</p>
+        {/* The One Tap logic & Fallback Button */}
+        <div className="mt-6 w-full">
+          <GoogleOneTap />
         </div>
-
-        {/* The One Tap logic */}
-        <GoogleOneTap />
       </div>
     </div>
   );

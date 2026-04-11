@@ -8,6 +8,7 @@ interface GoogleOneTapProps {
 
 export default function GoogleOneTap({ onSuccess, onError }: GoogleOneTapProps) {
   const isInitialized = useRef(false);
+  const buttonRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isInitialized.current) return;
@@ -39,9 +40,23 @@ export default function GoogleOneTap({ onSuccess, onError }: GoogleOneTapProps) 
             if (onError) onError(err);
           }
         },
-        use_fedcm_for_prompt: false, // Temporarily disable FedCM for local testing
+        use_fedcm_for_prompt: true, // Re-enable FedCM, but use fallback button if it fails
         cancel_on_tap_outside: false,
       });
+
+      // Render explicit physical sign-in button as fallback
+      if (buttonRef.current) {
+        try {
+          google.accounts.id.renderButton(buttonRef.current, {
+            theme: 'outline',
+            size: 'large',
+            shape: 'pill',
+            text: 'continue_with',
+          });
+        } catch (e) {
+          console.error("Failed to render Google button", e);
+        }
+      }
 
       google.accounts.id.prompt((notification: any) => {
         if (notification.isNotDisplayed()) {
@@ -55,5 +70,9 @@ export default function GoogleOneTap({ onSuccess, onError }: GoogleOneTapProps) 
     }
   }, [onSuccess, onError]);
 
-  return null; // One Tap renders its own overlay UI via Google script
+  return (
+    <div className="w-full flex justify-center min-h-[44px]">
+      <div ref={buttonRef}></div>
+    </div>
+  );
 }
