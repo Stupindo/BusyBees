@@ -1,6 +1,46 @@
--- Security Policies for BusyBees
+-- Cleanly recreate all RLS policies for BusyBees
 
--- 1. Enable RLS on all tables
+-- 1. Safely drop existing triggers and functions
+DROP TRIGGER IF EXISTS enforce_child_chore_update_columns ON public.chore_instances;
+DROP FUNCTION IF EXISTS public.check_chore_instance_columns() CASCADE;
+DROP FUNCTION IF EXISTS public.get_current_member_data() CASCADE;
+
+-- 2. Safely drop all existing policies
+-- From members table
+DROP POLICY IF EXISTS "Select own member record or family members" ON public.members;
+DROP POLICY IF EXISTS "Insert own member record" ON public.members;
+DROP POLICY IF EXISTS "Parent/Admin UPDATE members" ON public.members;
+DROP POLICY IF EXISTS "Parent/Admin DELETE members" ON public.members;
+
+-- From families table
+DROP POLICY IF EXISTS "View own family" ON public.families;
+DROP POLICY IF EXISTS "Insert family when no family_id" ON public.families;
+DROP POLICY IF EXISTS "Parent/Admin UPDATE family" ON public.families;
+DROP POLICY IF EXISTS "Parent/Admin DELETE family" ON public.families;
+
+-- From family_settings table
+DROP POLICY IF EXISTS "View family settings" ON public.family_settings;
+DROP POLICY IF EXISTS "Parent/Admin ALL family settings" ON public.family_settings;
+
+-- From weekly_templates table
+DROP POLICY IF EXISTS "View weekly templates" ON public.weekly_templates;
+DROP POLICY IF EXISTS "Parent/Admin ALL weekly templates" ON public.weekly_templates;
+
+-- From chores table
+DROP POLICY IF EXISTS "View chores" ON public.chores;
+DROP POLICY IF EXISTS "Parent/Admin ALL chores" ON public.chores;
+
+-- From chore_instances table
+DROP POLICY IF EXISTS "View chore instances" ON public.chore_instances;
+DROP POLICY IF EXISTS "Parent/Admin ALL chore instances" ON public.chore_instances;
+DROP POLICY IF EXISTS "Child UPDATE own chore instances" ON public.chore_instances;
+
+-- From transactions table
+DROP POLICY IF EXISTS "Parent/Admin SELECT transactions" ON public.transactions;
+DROP POLICY IF EXISTS "Parent/Admin INSERT transactions" ON public.transactions;
+DROP POLICY IF EXISTS "Child SELECT own transactions" ON public.transactions;
+
+-- 3. Enable RLS on all tables (idempotent operation)
 ALTER TABLE public.families ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.family_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
@@ -9,7 +49,7 @@ ALTER TABLE public.chores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chore_instances ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
--- 2. Membership Helper Function
+-- 4. Recreate the Membership Helper Function (Crucial for recursion fix)
 CREATE OR REPLACE FUNCTION public.get_current_member_data()
 RETURNS TABLE (
     family_id BIGINT,
@@ -26,7 +66,7 @@ AS $$
   LIMIT 1;
 $$;
 
--- 3. RLS Policies using Security Definer helper to avoid infinite recursion
+-- 5. Recreate RLS Policies utilizing the Security Definer helper
 
 -- ==========================
 -- TABLE: members
@@ -69,6 +109,7 @@ CREATE POLICY "View own family" ON public.families
 FOR SELECT
 USING (
   id = (SELECT family_id FROM public.get_current_member_data())
+  OR created_by = auth.uid()
 );
 
 CREATE POLICY "Insert family when no family_id" ON public.families
@@ -192,7 +233,7 @@ USING (
   AND (SELECT role FROM public.get_current_member_data()) = 'child'
 );
 
--- 3.1 Trigger to restrict columns a child can modify on chore_instances
+-- 6. Trigger to restrict columns a child can modify on chore_instances
 CREATE OR REPLACE FUNCTION public.check_chore_instance_columns()
 RETURNS TRIGGER AS $$
 BEGIN
