@@ -10,11 +10,25 @@ import ShareFamilyCode from './components/ShareFamilyCode';
 // Placeholder Pages
 const Dashboard = () => {
   const { user } = useAuth();
+  const { activeFamily, activeMember } = useFamily();
+  
+  let displayName = '';
+  if (activeMember?.custom_name) {
+    displayName = activeMember.custom_name;
+  } else if (user?.user_metadata?.first_name) {
+    displayName = user.user_metadata.first_name;
+  } else if (user?.user_metadata?.full_name || user?.user_metadata?.name) {
+    const fullName = user.user_metadata.full_name || user.user_metadata.name;
+    displayName = fullName.split(' ')[0];
+  } else if (user?.email) {
+    displayName = user.email.split('@')[0];
+  }
+  
   return (
     <div className="p-6 pt-10">
       <div className="mb-8">
         <h1 className="text-3xl font-extrabold text-secondary tracking-tight mb-1">Dashboard</h1>
-        <p className="text-stone-500 font-medium text-sm">Welcome back to the hive{user?.email ? `, ${user.email.split('@')[0]}` : ''}.</p>
+        <p className="text-stone-500 font-medium text-sm">Welcome back to the hive {activeFamily?.name || ''}{displayName ? `, ${displayName}` : ''}.</p>
       </div>
       
       <div className="bg-white p-8 rounded-3xl shadow-sm border border-stone-100 flex flex-col items-center justify-center min-h-[220px] transition-transform hover:scale-[1.01] duration-300">
@@ -49,12 +63,13 @@ const Wallet = () => (
 
 const Settings = () => {
   const { signOut } = useAuth();
+  const { activeFamily } = useFamily();
   
   return (
     <div className="p-6 pt-10">
       <div className="mb-8">
         <h1 className="text-3xl font-extrabold text-secondary tracking-tight mb-1">Family Setup</h1>
-        <p className="text-stone-500 font-medium text-sm">Manage the hive settings.</p>
+        <p className="text-stone-500 font-medium text-sm">Manage the {activeFamily?.name || ''} hive settings.</p>
       </div>
 
       <ShareFamilyCode />
