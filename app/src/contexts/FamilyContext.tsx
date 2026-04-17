@@ -6,6 +6,7 @@ import { useAuth } from '../components/AuthProvider';
 export interface Family {
   id: number;
   name: string;
+  join_code?: string;
 }
 
 export interface Member {

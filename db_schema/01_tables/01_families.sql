@@ -4,5 +4,6 @@ CREATE TABLE public.families (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     modified_at TIMESTAMPTZ,
     created_by UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    modified_by UUID REFERENCES auth.users(id) ON DELETE CASCADE
+    modified_by UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    join_code VARCHAR(6) UNIQUE
 );
