@@ -116,3 +116,97 @@ Built out the full **Chore Templates** management flow for BusyBees, covering th
 - The `get_family_members` RPC (built in the Manage Members milestone) is reused in `ChoreTemplatesScreen` for fetching member display names — no duplication.
 - Existing RLS policies already cover `weekly_templates` and `chores` (Parents/Admins: ALL; Children: SELECT only) — no schema changes needed.
 
+---
+
+## 20260425 — Implemented Dashboard: Today's Chores
+
+### Summary
+
+Replaced the placeholder `Dashboard` component with a full-featured **DashboardScreen** that shows the current member's chore instances for the active week, allows marking chores done or cancelled, and supports per-instance notes. Added two new DB functions and a schema migration.
+
+---
+
+### Database
+
+#### Migration: `db_schema/scripts/20260425_dashboard_chore_instances.sql`
+
+A single deployable migration file covering all three changes below.
+
+#### Schema change: `chore_instances.status` extended
+
+- Dropped and recreated the `CHECK` constraint on `chore_instances.status` to add `'cancelled'` as a valid 4th value (`pending | done | failed | cancelled`).
+
+#### New function: `get_today_chores(p_member_id BIGINT)` (`db_schema/02_functions/12_get_today_chores.sql`)
+
+- `SECURITY DEFINER` RPC that calculates the current ISO week's Monday and returns all `chore_instances` for that week for the given member.
+- Joins with `chores` to enrich results with `title`, `description`, `is_backlog`, `extra_reward`.
+- Ordered: pending → done → cancelled/failed; regular before backlog; alphabetical by title.
+- Callable via `supabase.rpc('get_today_chores', { p_member_id })`.
+
+#### New function: `generate_week_chores(p_family_id BIGINT, p_member_id BIGINT)` (`db_schema/02_functions/13_generate_week_chores.sql`)
+
+- **Merge strategy** for the current ISO week:
+  - **(a) INSERT** `pending` `chore_instances` for any template chore that doesn't yet have an instance this week.
+  - **(b) UPDATE** any existing `pending` instance to `cancelled` if its chore was removed from the member's active template, appending a system note: `[System] Chore was removed from the weekly template.`
+- Returns `JSON { inserted: N, cancelled: N }`.
+- Callable via `supabase.rpc('generate_week_chores', { p_family_id, p_member_id })`.
+
+---
+
+### Frontend
+
+#### `DashboardScreen.tsx` — `/` (Dashboard tab)
+
+Replaced the placeholder with a full feature screen:
+
+- **Greeting header**: Time-aware greeting ("Good morning/afternoon/evening, [Name]! 🐝") + family name + today's date + current week's Monday.
+- **Progress bar**: Shows `X / Y done` with an animated gradient fill; turns full green with a confetti message at 100%.
+- **Pending chores section**:
+  - Each chore rendered as a card with a colour-coded left border (amber=pending, blue=backlog bonus).
+  - ✅ **Mark Done** button (green circle) → opens note sheet → saves `status='done'`.
+  - ❌ **Cancel** button (red circle) → opens note sheet → saves `status='cancelled'`.
+  - Badges for "Bonus" (backlog) and extra gem reward (+N 💎).
+- **Completed & Cancelled section**: Collapsed by default with a count badge; tap to expand. Resolved cards show a ✅/❌ icon and a truncated note preview. Tapping opens the note sheet to view/edit.
+- **Bottom-sheet note modal**: Contextual title, placeholder text, and confirm button colour differ per mode (done/cancel/view).
+- **Empty state**: Friendly illustration + copy. Admins with a template see a **"Generate Chores"** button; those without a template are directed to Family Setup.
+- **Admin "Sync" button**: Small refresh icon in the Pending section header triggers `generate_week_chores` merge and reloads the list.
+- Optimistic UI: status and note update locally immediately after a successful Supabase write.
+
+#### `App.tsx`
+
+- Imported `DashboardScreen` and replaced the inline `Dashboard` placeholder component.
+- `/` index route now renders `<DashboardScreen />`.
+
+---
+
+### Tests
+
+**1 new test file, 16 new tests** (all 51 total tests pass ✅):
+
+#### `DashboardScreen.test.tsx` — 16 tests
+
+- Loading spinner displayed during fetch
+- Greeting with user name rendered
+- Family name and date rendered
+- Empty state shown when no chores returned
+- "Generate Chores" button shown for admin with a template on empty state
+- Pending chore card rendered with ✅ / ❌ action buttons
+- Chore description rendered
+- Progress bar shown with correct X/Y counter when chores exist
+- Extra reward badge (+N 💎) shown on qualifying chores
+- Note modal opens in "done" mode when ✅ is clicked
+- Note modal opens in "cancel" mode when ❌ is clicked (heading disambiguated via `getByRole`)
+- Note modal closes when ✕ button is clicked
+- Supabase `update` called with correct `instance_id` on confirm
+- Resolved section collapsed by default (count badge visible, chores hidden)
+- Resolved section expands on toggle click
+- Error message shown when RPC fails
+
+---
+
+### Notes
+
+- `cancelled` is now a first-class status in the DB schema, not a convention hack.
+- `generate_week_chores` is idempotent — safe to call multiple times per week; only inserts truly missing rows.
+- The "Sync" button is admin-only and visible even when chores already exist, making it easy to add new template chores mid-week.
+- All interactive elements carry unique `id` attributes for test and automation reliability.

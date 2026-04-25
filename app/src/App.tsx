@@ -9,41 +9,9 @@ import ShareFamilyCode from './components/ShareFamilyCode';
 import ManageMembersScreen from './components/ManageMembersScreen';
 import ChoreTemplatesScreen from './components/ChoreTemplatesScreen';
 import EditTemplateScreen from './components/EditTemplateScreen';
+import DashboardScreen from './components/DashboardScreen';
 
 // Placeholder Pages
-const Dashboard = () => {
-  const { user } = useAuth();
-  const { activeFamily, activeMember } = useFamily();
-  
-  let displayName = '';
-  if (activeMember?.custom_name) {
-    displayName = activeMember.custom_name;
-  } else if (user?.user_metadata?.first_name) {
-    displayName = user.user_metadata.first_name;
-  } else if (user?.user_metadata?.full_name || user?.user_metadata?.name) {
-    const fullName = user.user_metadata.full_name || user.user_metadata.name;
-    displayName = fullName.split(' ')[0];
-  } else if (user?.email) {
-    displayName = user.email.split('@')[0];
-  }
-  
-  return (
-    <div className="p-6 pt-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-extrabold text-secondary tracking-tight mb-1">Dashboard</h1>
-        <p className="text-stone-500 font-medium text-sm">Welcome back to the hive {activeFamily?.name || ''}{displayName ? `, ${displayName}` : ''}.</p>
-      </div>
-      
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-stone-100 flex flex-col items-center justify-center min-h-[220px] transition-transform hover:scale-[1.01] duration-300">
-        <div className="w-20 h-20 bg-gradient-to-br from-primary-light to-primary-dark rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
-          <span className="text-4xl shadow-sm drop-shadow-sm">🐝</span>
-        </div>
-        <h3 className="text-lg font-bold text-secondary mb-1">Ready to work!</h3>
-        <p className="text-stone-500 text-sm font-medium text-center">Your hive activity will appear here very soon.</p>
-      </div>
-    </div>
-  );
-};
 
 const Wallet = () => (
   <div className="p-6 pt-10">
@@ -135,7 +103,7 @@ const FamilyGuardedApp = () => {
   return (
     <Routes>
       <Route path="/" element={<MobileLayout />}>
-        <Route index element={<Dashboard />} />
+        <Route index element={<DashboardScreen />} />
         <Route path="wallet" element={<Wallet />} />
         <Route path="settings" element={<Settings />} />
         <Route path="settings/members" element={<ManageMembersScreen />} />
