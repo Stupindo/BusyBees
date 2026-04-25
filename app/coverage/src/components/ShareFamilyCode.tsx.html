@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">69.23% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/13</span>
+                <span class='fraction'>9/13</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">71.42% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/14</span>
+                <span class='fraction'>10/14</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">33.33% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/3</span>
+                <span class='fraction'>1/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">75% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/12</span>
+                <span class='fraction'>9/12</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -124,31 +124,31 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -180,32 +180,32 @@
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useState } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 &nbsp;
-export default function <span class="fstat-no" title="function not covered" >ShareFamilyCode() {</span>
-  const { activeFamily, <span class="cstat-no" title="statement not covered" >activeMember } = useFamily();</span>
-  const [copied, <span class="cstat-no" title="statement not covered" >setCopied] = useState(false);</span>
+export default function ShareFamilyCode() {
+  const { activeFamily, activeMember } = useFamily();
+  const [copied, setCopied] = useState(false);
 &nbsp;
   // We rely on RLS allowing parents/admins to see the code, and child roles probably can't see the code depending on SELECT policy.
   // Wait, our RLS 'View own family' allows any member to SELECT the family, so any member can see the code.
   // That's fine, kids can share the code with other family members, but let's just make sure only parents or admins can easily click to copy it for peace of mind. Or anyone can.
   // Actually, let's just restrict it to Admins/Parents for better control.
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  if (!activeFamily || !activeFamily.join_code) {</span>
-<span class="cstat-no" title="statement not covered" >    return null;</span>
+  if (!activeFamily || !activeFamily.join_code) {
+    return null;
   }
 &nbsp;
-  const isParentOrAdmin = <span class="cstat-no" title="statement not covered" >activeMember?.role === 'parent' || activeMember?.is_admin;</span>
+  const isParentOrAdmin = activeMember?.role === 'parent' || activeMember?.is_admin;
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  if (!isParentOrAdmin) {</span>
-<span class="cstat-no" title="statement not covered" >    return null;</span>
+  if (!isParentOrAdmin) {
+    return null;
   }
 &nbsp;
-  const <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >handleCopy = () =&gt; {</span></span>
+  const <span class="fstat-no" title="function not covered" >handleCopy = () =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    navigator.clipboard.writeText(activeFamily.join_code || '');</span>
 <span class="cstat-no" title="statement not covered" >    setCopied(true);</span>
 <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >    setTimeout(() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etCopied(false),</span> 2000);</span>
   };
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return (</span>
+  return (
     &lt;div className="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 flex flex-col mb-6"&gt;
       &lt;div className="mb-4"&gt;
         &lt;h3 className="text-lg font-bold text-secondary flex items-center"&gt;
@@ -224,11 +224,11 @@ export default function <span class="fstat-no" title="function not covered" >Sha
           onClick={handleCopy}
           className={`px-4 py-3 rounded-xl font-bold transition-all text-sm ${
             copied 
-              ? 'bg-green-100 text-green-700' 
+              ? <span class="branch-0 cbranch-no" title="branch not covered" >'bg-green-100 text-green-700' </span>
               : 'bg-primary text-secondary hover:bg-primary-dark hover:scale-[1.02]'
           }`}
         &gt;
-          {copied ? 'Copied!' : 'Copy'}
+          {copied ? <span class="branch-0 cbranch-no" title="branch not covered" >'Copied!' : '</span>Copy'}
         &lt;/button&gt;
       &lt;/div&gt;
     &lt;/div&gt;
@@ -241,7 +241,7 @@ export default function <span class="fstat-no" title="function not covered" >Sha
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-25T14:23:45.666Z
+                at 2026-04-25T14:32:19.374Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

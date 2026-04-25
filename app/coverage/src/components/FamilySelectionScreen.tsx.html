@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">87.5% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/8</span>
+                <span class='fraction'>7/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">75% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/4</span>
+                <span class='fraction'>3/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/3</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/7</span>
+                <span class='fraction'>7/7</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -114,30 +114,30 @@
 <a name='L49'></a><a href='#L49'>49</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -161,18 +161,18 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useFamily } from '../contexts/FamilyContext';
 &nbsp;
-export default function <span class="fstat-no" title="function not covered" >FamilySelectionScreen() {</span>
-  const { userMemberships, setActiveFamilyId, <span class="cstat-no" title="statement not covered" >isLoadingFamilies } = useFamily();</span>
+export default function FamilySelectionScreen() {
+  const { userMemberships, setActiveFamilyId, isLoadingFamilies } = useFamily();
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  if (isLoadingFamilies) {</span>
-<span class="cstat-no" title="statement not covered" >    return (</span>
+  if (isLoadingFamilies) {
+    return (
       &lt;div className="min-h-screen flex items-center justify-center bg-stone-50"&gt;
         &lt;div className="w-12 h-12 border-4 border-stone-200 border-t-primary rounded-full animate-spin"&gt;&lt;/div&gt;
       &lt;/div&gt;
     );
   }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return (</span>
+  return (
     &lt;div className="flex flex-col min-h-screen bg-stone-50 font-sans text-secondary p-6 overflow-y-auto"&gt;
       &lt;div className="mt-12 mb-8"&gt;
         &lt;h1 className="text-3xl font-extrabold text-secondary tracking-tight mb-2"&gt;Select your Hive&lt;/h1&gt;
@@ -180,12 +180,12 @@ export default function <span class="fstat-no" title="function not covered" >Fam
       &lt;/div&gt;
 &nbsp;
       &lt;div className="space-y-4 w-full max-w-sm mx-auto"&gt;
-        {userMemberships.<span class="fstat-no" title="function not covered" >map((m</span>embership) =&gt; {
-<span class="cstat-no" title="statement not covered" >          if (!membership.families) <span class="cstat-no" title="statement not covered" >return null;</span></span>
-<span class="cstat-no" title="statement not covered" >          return (</span>
+        {userMemberships.map((membership) =&gt; {
+          <span class="missing-if-branch" title="if path not taken" >I</span>if (!membership.families) <span class="cstat-no" title="statement not covered" >return null;</span>
+          return (
             &lt;button
               key={membership.id}
-<span class="fstat-no" title="function not covered" >              onClick={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etActiveFamilyId(membership.family_id)}</span>
+              onClick={() =&gt; setActiveFamilyId(membership.family_id)}
               className="w-full bg-white p-6 rounded-3xl shadow-sm border border-stone-100 flex items-center text-left hover:shadow-md hover:border-primary-light transition-all active:scale-[0.98] group"
             &gt;
               &lt;div className="w-14 h-14 bg-gradient-to-br from-primary-light/50 to-primary/20 rounded-2xl flex items-center justify-center mr-5 shadow-inner"&gt;
@@ -214,7 +214,7 @@ export default function <span class="fstat-no" title="function not covered" >Fam
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-25T14:23:45.666Z
+                at 2026-04-25T14:32:19.374Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
