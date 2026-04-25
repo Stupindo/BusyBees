@@ -7,6 +7,8 @@ import FamilySelectionScreen from './components/FamilySelectionScreen';
 import CreateFamilyScreen from './components/CreateFamilyScreen';
 import ShareFamilyCode from './components/ShareFamilyCode';
 import ManageMembersScreen from './components/ManageMembersScreen';
+import ChoreTemplatesScreen from './components/ChoreTemplatesScreen';
+import EditTemplateScreen from './components/EditTemplateScreen';
 
 // Placeholder Pages
 const Dashboard = () => {
@@ -85,7 +87,10 @@ const Settings = () => {
             <span>Manage Members</span>
             <span className="text-stone-400 group-hover:text-primary transition-colors">→</span>
           </li>
-          <li className="p-5 flex items-center justify-between text-stone-700 font-semibold cursor-pointer hover:bg-stone-50 transition-colors group">
+          <li
+            onClick={() => navigate('/settings/templates')}
+            className="p-5 flex items-center justify-between text-stone-700 font-semibold cursor-pointer hover:bg-stone-50 transition-colors group"
+          >
             <span>Chore Templates</span>
             <span className="text-stone-400 group-hover:text-primary transition-colors">→</span>
           </li>
@@ -134,6 +139,8 @@ const FamilyGuardedApp = () => {
         <Route path="wallet" element={<Wallet />} />
         <Route path="settings" element={<Settings />} />
         <Route path="settings/members" element={<ManageMembersScreen />} />
+        <Route path="settings/templates" element={<ChoreTemplatesScreen />} />
+        <Route path="settings/templates/:templateId" element={<EditTemplateScreen />} />
       </Route>
     </Routes>
   );
