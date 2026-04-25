@@ -16,6 +16,9 @@ export interface Member {
   is_admin: boolean;
   custom_name: string | null;
   families: Family | null;
+  email?: string;
+  first_name?: string;
+  full_name?: string;
 }
 
 interface FamilyContextType {

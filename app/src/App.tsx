@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import MobileLayout from './components/MobileLayout';
 import { AuthProvider, useAuth } from './components/AuthProvider';
 import LoginScreen from './components/LoginScreen';
@@ -6,6 +6,7 @@ import { FamilyProvider, useFamily } from './contexts/FamilyContext';
 import FamilySelectionScreen from './components/FamilySelectionScreen';
 import CreateFamilyScreen from './components/CreateFamilyScreen';
 import ShareFamilyCode from './components/ShareFamilyCode';
+import ManageMembersScreen from './components/ManageMembersScreen';
 
 // Placeholder Pages
 const Dashboard = () => {
@@ -64,6 +65,7 @@ const Wallet = () => (
 const Settings = () => {
   const { signOut } = useAuth();
   const { activeFamily } = useFamily();
+  const navigate = useNavigate();
   
   return (
     <div className="p-6 pt-10">
@@ -76,7 +78,10 @@ const Settings = () => {
       
       <div className="bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden mb-6">
         <ul className="divide-y divide-stone-100">
-          <li className="p-5 flex items-center justify-between text-stone-700 font-semibold cursor-pointer hover:bg-stone-50 transition-colors group">
+          <li 
+            onClick={() => navigate('/settings/members')}
+            className="p-5 flex items-center justify-between text-stone-700 font-semibold cursor-pointer hover:bg-stone-50 transition-colors group"
+          >
             <span>Manage Members</span>
             <span className="text-stone-400 group-hover:text-primary transition-colors">→</span>
           </li>
@@ -128,6 +133,7 @@ const FamilyGuardedApp = () => {
         <Route index element={<Dashboard />} />
         <Route path="wallet" element={<Wallet />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="settings/members" element={<ManageMembersScreen />} />
       </Route>
     </Routes>
   );
