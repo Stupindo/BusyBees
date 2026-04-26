@@ -210,3 +210,18 @@ Replaced the placeholder with a full feature screen:
 - `generate_week_chores` is idempotent — safe to call multiple times per week; only inserts truly missing rows.
 - The "Sync" button is admin-only and visible even when chores already exist, making it easy to add new template chores mid-week.
 - All interactive elements carry unique `id` attributes for test and automation reliability.
+
+---
+
+## 20260425 — Security Patch: Privilege Escalation Fix
+
+### Summary
+Addressed a critical privilege escalation vulnerability where the client-side `INSERT` policy on the `members` table allowed any user to guess a `family_id` and assign themselves as an admin of that family.
+
+### Database
+- **Migration**: `db_schema/scripts/20260425_fix_member_insert_privilege.sql`
+- **Dropped Policy**: Removed the `"Insert own member record"` policy from `public.members`.
+- **New RPC**: Created `public.create_family(p_name TEXT)` (`db_schema/02_functions/14_create_family.sql`). This `SECURITY DEFINER` function securely creates the family and assigns the user as a parent/admin on the server side, bypassing the need for client-side insert permissions on `members`. It also correctly updates the user's dummy member record if one exists, fixing a secondary logic bug.
+
+### Frontend
+- **`CreateFamilyScreen.tsx`**: Refactored `handleCreate` to call `supabase.rpc('create_family')` instead of directly inserting into the `families` and `members` tables from the client.

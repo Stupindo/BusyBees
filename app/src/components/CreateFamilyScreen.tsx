@@ -25,29 +25,11 @@ export default function CreateFamilyScreen() {
     setError('');
 
     try {
-      // 1. Create the base Family record
-      const { data: familyData, error: familyError } = await supabase
-        .from('families')
-        .insert([{ 
-          name: familyName.trim(),
-          created_by: session.user.id
-        }])
-        .select()
-        .single();
+      const { error: familyError } = await supabase.rpc('create_family', {
+        p_name: familyName.trim()
+      });
         
       if (familyError) throw familyError;
-      
-      // 2. Create the Member mapping for the creator, assigning default 'parent' and 'admin' roles
-      const { error: memberError } = await supabase
-        .from('members')
-        .insert([{
-          user_id: session.user.id,
-          family_id: familyData.id,
-          role: 'parent',
-          is_admin: true
-        }]);
-        
-      if (memberError) throw memberError;
 
       // 3. Force the provider to resync.
       await refreshFamilies();

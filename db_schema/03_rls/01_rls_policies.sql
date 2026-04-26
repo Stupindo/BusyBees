@@ -38,9 +38,6 @@ USING (
   OR (family_id IS NOT NULL AND family_id = (SELECT family_id FROM public.get_current_member_data()))
 );
 
-CREATE POLICY "Insert own member record" ON public.members
-FOR INSERT
-WITH CHECK (user_id = auth.uid());
 
 CREATE POLICY "Parent/Admin UPDATE members" ON public.members
 FOR UPDATE
