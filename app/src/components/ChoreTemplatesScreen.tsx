@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, PlusCircle, ChevronRight } from 'lucide-react';
+import { ArrowLeft, PlusCircle, ChevronRight, RefreshCw, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useFamily } from '../contexts/FamilyContext';
 import type { Member } from '../contexts/FamilyContext';
@@ -52,6 +52,13 @@ function getMemberDisplayName(m: Member): string {
 // Component
 // ---------------------------------------------------------------------------
 
+interface ReinitiateResult {
+  member_name: string;
+  inserted: number;
+  cancelled: number;
+  error?: string;
+}
+
 export default function ChoreTemplatesScreen() {
   const navigate = useNavigate();
   const { activeFamily, activeMember } = useFamily();
@@ -61,6 +68,11 @@ export default function ChoreTemplatesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [creatingFor, setCreatingFor] = useState<number | null>(null); // member_id being created
+
+  // Reinitiate weekly chores state
+  const [isReinitConfirmOpen, setIsReinitConfirmOpen] = useState(false);
+  const [isReinitRunning, setIsReinitRunning] = useState(false);
+  const [reinitiateResults, setReinitiateResults] = useState<ReinitiateResult[] | null>(null);
 
   const isAdmin = activeMember?.is_admin || activeMember?.role === 'parent';
 
@@ -105,6 +117,42 @@ export default function ChoreTemplatesScreen() {
     member: m,
     template: rows.find(r => r.member_id === m.id) || null,
   }));
+
+  // ---------------------------------------------------------------------------
+  // Reinitiate weekly chores for the whole family (admin only)
+  // ---------------------------------------------------------------------------
+
+  const handleReinitate = async () => {
+    if (!activeFamily) return;
+    setIsReinitConfirmOpen(false);
+    setIsReinitRunning(true);
+    setReinitiateResults(null);
+
+    const results: ReinitiateResult[] = [];
+
+    for (const row of rows) {
+      const memberName = getDisplayName(row);
+      const { data, error: rpcErr } = await supabase.rpc('generate_week_chores', {
+        p_family_id: activeFamily.id,
+        p_member_id: row.member_id,
+      });
+
+      if (rpcErr) {
+        results.push({ member_name: memberName, inserted: 0, cancelled: 0, error: rpcErr.message });
+      } else {
+        const res = data as { inserted: number; cancelled: number; error?: string };
+        results.push({
+          member_name: memberName,
+          inserted: res.inserted ?? 0,
+          cancelled: res.cancelled ?? 0,
+          error: res.error,
+        });
+      }
+    }
+
+    setIsReinitRunning(false);
+    setReinitiateResults(results);
+  };
 
   // ---------------------------------------------------------------------------
   // Navigate to template editor — auto-creating the record if needed
@@ -166,10 +214,23 @@ export default function ChoreTemplatesScreen() {
         >
           <ArrowLeft className="w-6 h-6" />
         </button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-xl font-extrabold text-secondary tracking-tight">Chore Templates</h1>
           <p className="text-stone-400 text-xs font-medium">{activeFamily.name} Hive</p>
         </div>
+        {/* Admin: reinitiate button */}
+        {isAdmin && rows.length > 0 && (
+          <button
+            id="reinitiate-chores-btn"
+            onClick={() => setIsReinitConfirmOpen(true)}
+            disabled={isReinitRunning}
+            className="flex items-center gap-1.5 text-xs font-bold bg-secondary/5 hover:bg-secondary/10 text-secondary px-3 py-2 rounded-xl transition-colors disabled:opacity-50 border border-secondary/10"
+            title="Reinitiate this week's chore instances for all members"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isReinitRunning ? 'animate-spin' : ''}`} />
+            {isReinitRunning ? 'Running…' : 'Reinitiate'}
+          </button>
+        )}
       </div>
 
       <div className="p-6 pb-28 flex-1 overflow-y-auto">
@@ -179,6 +240,40 @@ export default function ChoreTemplatesScreen() {
             📋 Each family member can have a weekly chore template. Set up rewards and individual tasks for each bee in your hive.
           </p>
         </div>
+
+        {/* Reinitiate results banner */}
+        {reinitiateResults && (
+          <div className="mb-5 bg-white border border-stone-100 rounded-2xl shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-stone-50">
+              <p className="text-sm font-extrabold text-secondary">🔄 Weekly Chores Reinitiated</p>
+              <button
+                id="close-reinitiate-results-btn"
+                onClick={() => setReinitiateResults(null)}
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-stone-100 text-stone-400 hover:bg-stone-200 transition-colors"
+                aria-label="Dismiss results"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="divide-y divide-stone-50">
+              {reinitiateResults.map((r, i) => (
+                <div key={i} className="flex items-center justify-between px-4 py-2.5">
+                  <span className="text-sm font-semibold text-secondary">{r.member_name}</span>
+                  {r.error ? (
+                    <span className="text-xs text-red-500 font-semibold">{r.error}</span>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs bg-lime-50 text-lime-700 font-bold px-2 py-0.5 rounded-full">+{r.inserted} added</span>
+                      {r.cancelled > 0 && (
+                        <span className="text-xs bg-red-50 text-red-500 font-bold px-2 py-0.5 rounded-full">{r.cancelled} cancelled</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex justify-center p-12">
@@ -276,6 +371,38 @@ export default function ChoreTemplatesScreen() {
           </div>
         )}
       </div>
+
+      {/* Confirmation dialog */}
+      {isReinitConfirmOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setIsReinitConfirmOpen(false); }}
+        >
+          <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-6">
+            <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center text-3xl mx-auto mb-4">🔄</div>
+            <h2 className="text-xl font-black text-secondary text-center mb-2 tracking-tight">Reinitiate Weekly Chores?</h2>
+            <p className="text-sm text-stone-400 font-medium text-center mb-6">
+              This will sync this week's chore instances for all <strong>{rows.length}</strong> member{rows.length !== 1 ? 's' : ''} with templates — adding missing chores and cancelling removed ones. Existing completed chores are unaffected.
+            </p>
+            <div className="flex gap-3">
+              <button
+                id="reinitiate-cancel-btn"
+                onClick={() => setIsReinitConfirmOpen(false)}
+                className="flex-1 py-3 bg-stone-100 text-stone-500 font-bold rounded-2xl hover:bg-stone-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                id="reinitiate-confirm-btn"
+                onClick={handleReinitate}
+                className="flex-1 py-3 bg-secondary text-primary-light font-bold rounded-2xl hover:bg-black transition-colors"
+              >
+                Reinitiate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -163,6 +163,70 @@ describe('ChoreTemplatesScreen', () => {
     });
   });
 
+  it('shows the Reinitiate button for admin when templates exist', async () => {
+    setupMocks();
+    renderScreen();
+
+    await waitFor(() => {
+      expect(document.getElementById('reinitiate-chores-btn')).toBeInTheDocument();
+    });
+  });
+
+  it('does not show the Reinitiate button when there are no templates', async () => {
+    setupMocks([], MOCK_MEMBERS); // no templates
+    renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getByText('Timmy')).toBeInTheDocument();
+    });
+
+    expect(document.getElementById('reinitiate-chores-btn')).toBeNull();
+  });
+
+  it('opens confirmation dialog when Reinitiate is clicked', async () => {
+    setupMocks();
+    renderScreen();
+
+    await waitFor(() => {
+      expect(document.getElementById('reinitiate-chores-btn')).toBeInTheDocument();
+    });
+
+    fireEvent.click(document.getElementById('reinitiate-chores-btn')!);
+
+    expect(screen.getByText('Reinitiate Weekly Chores?')).toBeInTheDocument();
+    expect(document.getElementById('reinitiate-confirm-btn')).toBeInTheDocument();
+    expect(document.getElementById('reinitiate-cancel-btn')).toBeInTheDocument();
+  });
+
+  it('calls generate_week_chores for each template member and shows results', async () => {
+    setupMocks();
+
+    // Override the rpc mock so generate_week_chores returns a result
+    (supabase.rpc as ReturnType<typeof vi.fn>).mockImplementation((name: string) => {
+      if (name === 'get_family_templates')
+        return Promise.resolve({ data: MOCK_TEMPLATES, error: null });
+      if (name === 'get_family_members')
+        return Promise.resolve({ data: MOCK_MEMBERS, error: null });
+      if (name === 'generate_week_chores')
+        return Promise.resolve({ data: { inserted: 2, cancelled: 0 }, error: null });
+      return Promise.resolve({ data: [], error: null });
+    });
+
+    renderScreen();
+
+    await waitFor(() => {
+      expect(document.getElementById('reinitiate-chores-btn')).toBeInTheDocument();
+    });
+
+    fireEvent.click(document.getElementById('reinitiate-chores-btn')!);
+    fireEvent.click(document.getElementById('reinitiate-confirm-btn')!);
+
+    await waitFor(() => {
+      expect(screen.getByText('🔄 Weekly Chores Reinitiated')).toBeInTheDocument();
+      expect(screen.getByText(/\+2 added/i)).toBeInTheDocument();
+    });
+  });
+
   it('auto-creates template and navigates when member has no template', async () => {
     setupMocks([], MOCK_MEMBERS); // no templates for any member
 
