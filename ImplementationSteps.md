@@ -225,3 +225,24 @@ Addressed a critical privilege escalation vulnerability where the client-side `I
 
 ### Frontend
 - **`CreateFamilyScreen.tsx`**: Refactored `handleCreate` to call `supabase.rpc('create_family')` instead of directly inserting into the `families` and `members` tables from the client.
+
+---
+
+## 20260425 — Security Patch: Unauthenticated Edge Function Fix
+
+### Summary
+Secured the `weekly-hive-reset` Edge function by implementing an authentication check, preventing arbitrary public execution.
+
+### Edge Functions
+- **`weekly-hive-reset/index.ts`**: Added a validation step at the beginning of the request handler that checks for a `Bearer` token in the `Authorization` header. It compares this token against a configured `CRON_SECRET` environment variable, immediately returning a `401 Unauthorized` response if the caller is unauthenticated.
+
+---
+
+## 20260425 — Security Patch: NPM Vulnerabilities Fix
+
+### Summary
+Resolved 5 NPM audit vulnerabilities (4 High, 1 Moderate) related to `serialize-javascript` and `postcss` within the frontend application.
+
+### Frontend
+- **`app/package.json`**: Upgraded vulnerable packages to their latest secure versions (`postcss@latest`, `serialize-javascript@latest`, `vite-plugin-pwa@latest`).
+- **NPM Overrides**: Added an explicit override for `"serialize-javascript": "^7.0.5"` to force nested dependencies (like `@rollup/plugin-terser` inside `vite-plugin-pwa`) to use a version immune to RCE and CPU Exhaustion attacks. The application now reports `0 vulnerabilities`.
