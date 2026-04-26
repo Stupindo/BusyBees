@@ -63,7 +63,7 @@ const doneChore = {
   instance_id: 2,
   chore_id: 102,
   title: 'Take out trash',
-  description: null,
+  description: '',
   is_backlog: false,
   extra_reward: 5,
   status: 'done',
@@ -75,7 +75,7 @@ const cancelledChore = {
   instance_id: 3,
   chore_id: 103,
   title: 'Clean windows',
-  description: null,
+  description: '',
   is_backlog: false,
   extra_reward: 0,
   status: 'cancelled',
@@ -97,7 +97,7 @@ function mockNoChores() {
   });
 }
 
-function mockWithChores(chores: typeof pendingChore[]) {
+function mockWithChores(chores: any[]) {
   mockRpc.mockImplementation((fn: string) => {
     if (fn === 'get_today_chores') return Promise.resolve({ data: chores, error: null });
     return Promise.resolve({ data: { inserted: 2, cancelled: 0 }, error: null });
@@ -170,11 +170,7 @@ describe('DashboardScreen', () => {
 
     render(<DashboardScreen />);
     await waitFor(() => {
-      expect(screen.getByTestId('loading-spinner')).toBeFalsy().or?.(
-        expect(screen.queryByText(/Generate Chores/i)).not.toBeNull()
-      );
-    }).catch(() => {
-      // Fallback: check after loading
+      expect(screen.queryByTestId('loading-spinner')).toBeNull();
     });
     await waitFor(() => {
       expect(screen.getByText(/Generate Chores/i)).toBeTruthy();
@@ -248,7 +244,7 @@ describe('DashboardScreen', () => {
     await waitFor(() => {
       fireEvent.click(screen.getByLabelText(/Complete Wash dishes/i));
     });
-    fireEvent.click(screen.getById?.('close-note-modal-btn') ?? screen.getByLabelText('Close'));
+    fireEvent.click(screen.getByLabelText('Close'));
     await waitFor(() => {
       expect(screen.queryByTestId('note-modal')).toBeNull();
     });
@@ -269,7 +265,7 @@ describe('DashboardScreen', () => {
     await waitFor(() => {
       fireEvent.click(screen.getByLabelText(/Complete Wash dishes/i));
     });
-    fireEvent.click(screen.getById?.('confirm-note-modal-btn') ?? screen.getByText('Mark Done'));
+    fireEvent.click(screen.getByText('Mark Done'));
     await waitFor(() => {
       expect(updateMock).toHaveBeenCalledWith('id', pendingChore.instance_id);
     });

@@ -64,7 +64,7 @@ function buildFromChain(template = MOCK_TEMPLATE, chores = MOCK_CHORES) {
     update: () => ({ eq: () => Promise.resolve({ error: null }) }),
     insert: () => ({
       select: () => ({
-        single: () => Promise.resolve({ data: { id: 99, ...MOCK_CHORES[0] }, error: null }),
+        single: () => Promise.resolve({ data: { ...MOCK_CHORES[0], id: 99 }, error: null }),
       }),
     }),
     delete: () => ({ eq: () => Promise.resolve({ error: null }) }),

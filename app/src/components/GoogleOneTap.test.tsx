@@ -1,9 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import GoogleOneTap from './GoogleOneTap';
 
 describe('GoogleOneTap', () => {
-  const originalEnv = import.meta.env;
+
 
   beforeEach(() => {
     vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'test-client-id');

@@ -77,7 +77,7 @@ export default function EditTemplateScreen() {
     setIsLoading(true);
     setError('');
 
-    const [{ data: tData, error: tErr }, { data: cData, error: cErr }] = await Promise.all([
+    const [{ data: tData, error: tErr }, { data: cData }] = await Promise.all([
       supabase.from('weekly_templates').select('*').eq('id', numericId).single(),
       supabase.from('chores').select('*').eq('template_id', numericId).order('id'),
     ]);
