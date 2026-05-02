@@ -83,6 +83,18 @@ const cancelledChore = {
   week_start_date: '2026-04-21',
 };
 
+const backlogChore = {
+  instance_id: 4,
+  chore_id: 104,
+  title: 'Extra reading',
+  description: 'Read 20 pages',
+  is_backlog: true,
+  extra_reward: 10,
+  status: 'pending',
+  notes: null,
+  week_start_date: '2026-04-21',
+};
+
 // ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------
@@ -268,6 +280,28 @@ describe('DashboardScreen', () => {
     fireEvent.click(screen.getByText('Mark Done'));
     await waitFor(() => {
       expect(updateMock).toHaveBeenCalledWith('id', pendingChore.instance_id);
+    });
+  });
+
+  it('shows backlog section collapsed by default with count', async () => {
+    mockWithChores([pendingChore, backlogChore]);
+    render(<DashboardScreen />);
+    await waitFor(() => {
+      expect(screen.getByText(/Bonus Tasks/i)).toBeTruthy();
+      // backlog chores should not be visible until expanded
+      expect(screen.queryByText('Read 20 pages')).toBeNull();
+    });
+  });
+
+  it('expands backlog section when toggled', async () => {
+    mockWithChores([pendingChore, backlogChore]);
+    render(<DashboardScreen />);
+    await waitFor(() => {
+      const btn = screen.getByText(/Bonus Tasks/i);
+      fireEvent.click(btn);
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Extra reading')).toBeTruthy();
     });
   });
 

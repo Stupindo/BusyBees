@@ -41,7 +41,6 @@ BEGIN
         SELECT id AS chore_id
         FROM public.chores
         WHERE template_id = v_template_id
-          AND is_backlog = false
           AND is_deleted = false
     ),
     existing_instances AS (
@@ -72,7 +71,7 @@ BEGIN
       AND ci.member_id      = p_member_id
       AND ci.week_start_date = v_week_start
       AND ci.status         = 'pending'
-      AND (c.template_id != v_template_id OR c.is_backlog = true OR c.is_deleted = true);
+      AND (c.template_id != v_template_id OR c.is_deleted = true);
 
     GET DIAGNOSTICS v_cancelled = ROW_COUNT;
 

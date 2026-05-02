@@ -335,6 +335,8 @@ export default function DashboardScreen() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasTemplate, setHasTemplate] = useState(false);
 
+  const [showBacklog, setShowBacklog] = useState(false);
+
   const isAdmin = activeMember?.is_admin || activeMember?.role === 'parent';
 
   // Resolve display name
@@ -483,7 +485,8 @@ export default function DashboardScreen() {
   // Derived state
   // ---------------------------------------------------------------------------
 
-  const pendingChores = chores.filter(c => c.status === 'pending');
+  const pendingChores = chores.filter(c => c.status === 'pending' && !c.is_backlog);
+  const pendingBacklogChores = chores.filter(c => c.status === 'pending' && c.is_backlog);
   const resolvedChores = chores.filter(c => c.status !== 'pending');
   const doneCount = chores.filter(c => c.status === 'done').length;
   const totalCount = chores.length;
@@ -554,7 +557,7 @@ export default function DashboardScreen() {
                 )}
               </div>
 
-              {pendingChores.length === 0 && totalCount === 0 ? (
+              {pendingChores.length === 0 && pendingBacklogChores.length === 0 && totalCount === 0 ? (
                 <EmptyState
                   isAdmin={isAdmin}
                   isGenerating={isGenerating}
@@ -582,6 +585,44 @@ export default function DashboardScreen() {
                 </div>
               )}
             </section>
+
+            {/* Backlog section */}
+            {pendingBacklogChores.length > 0 && (
+              <section>
+                <button
+                  id="toggle-backlog-btn"
+                  onClick={() => setShowBacklog(p => !p)}
+                  className="w-full flex items-center justify-between px-1 mb-3 group"
+                >
+                  <h2 className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center gap-1">
+                    Bonus Tasks
+                    <Zap className="w-3 h-3 text-blue-500" />
+                    <span className="bg-blue-100 text-blue-600 text-[10px] font-black px-2 py-0.5 rounded-full ml-1">
+                      {pendingBacklogChores.length}
+                    </span>
+                  </h2>
+                  {showBacklog ? (
+                    <ChevronUp className="w-4 h-4 text-stone-400 group-hover:text-secondary transition-colors" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-stone-400 group-hover:text-secondary transition-colors" />
+                  )}
+                </button>
+
+                {showBacklog && (
+                  <div className="space-y-3">
+                    {pendingBacklogChores.map(instance => (
+                      <ChoreCard
+                        key={instance.instance_id}
+                        instance={instance}
+                        onMarkDone={handleMarkDone}
+                        onMarkCancelled={handleMarkCancelled}
+                        onViewNote={handleViewNote}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
 
             {/* Completed / Cancelled section */}
             {resolvedChores.length > 0 && (
