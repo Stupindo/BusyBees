@@ -163,7 +163,8 @@ serve(async (req: Request) => {
            .from("chores")
            .select("id, is_backlog")
            .eq("template_id", template.id)
-           .eq("is_backlog", false); // Skip backlog
+           .eq("is_backlog", false)
+           .eq("is_deleted", false); // Skip backlog & deleted
 
         if (!tChoresError && templateChores) {
            const newInstances = templateChores.map((tc: any) => ({

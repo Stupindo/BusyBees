@@ -79,7 +79,7 @@ export default function EditTemplateScreen() {
 
     const [{ data: tData, error: tErr }, { data: cData }] = await Promise.all([
       supabase.from('weekly_templates').select('*').eq('id', numericId).single(),
-      supabase.from('chores').select('*').eq('template_id', numericId).order('id'),
+      supabase.from('chores').select('*').eq('template_id', numericId).eq('is_deleted', false).order('id'),
     ]);
 
     if (tErr || !tData) {
@@ -202,7 +202,7 @@ export default function EditTemplateScreen() {
   const handleDeleteChore = async (choreId: number) => {
     if (!window.confirm('Delete this chore? This cannot be undone.')) return;
 
-    const { error: delErr } = await supabase.from('chores').delete().eq('id', choreId);
+    const { error: delErr } = await supabase.from('chores').update({ is_deleted: true }).eq('id', choreId);
 
     if (delErr) {
       console.error('Error deleting chore:', delErr);

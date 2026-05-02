@@ -33,7 +33,7 @@ BEGIN
             (u.raw_user_meta_data->>'first_name')::TEXT as first_name,
             (u.raw_user_meta_data->>'full_name')::TEXT as full_name
         FROM public.members m
-        JOIN auth.users u ON m.user_id = u.id
+        LEFT JOIN auth.users u ON m.user_id = u.id
         WHERE m.family_id = p_family_id
         ORDER BY m.id ASC;
     ELSE

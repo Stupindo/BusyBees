@@ -246,3 +246,25 @@ Resolved 5 NPM audit vulnerabilities (4 High, 1 Moderate) related to `serialize-
 ### Frontend
 - **`app/package.json`**: Upgraded vulnerable packages to their latest secure versions (`postcss@latest`, `serialize-javascript@latest`, `vite-plugin-pwa@latest`).
 - **NPM Overrides**: Added an explicit override for `"serialize-javascript": "^7.0.5"` to force nested dependencies (like `@rollup/plugin-terser` inside `vite-plugin-pwa`) to use a version immune to RCE and CPU Exhaustion attacks. The application now reports `0 vulnerabilities`.
+
+---
+
+## 20260502 — Chore Generation & Soft Deletes Implementation
+
+### Summary
+Addressed a bug where the weekly chore "Reinitiate" button skipped members who did not have an active `auth.users` account (e.g. young children added by their parents). We also implemented soft deletion for chores so that when a chore is removed from a template, any existing pending instances for that week are cleanly marked as `cancelled` rather than being entirely wiped out by cascade deletes.
+
+### Database
+- **Migration**: `db_schema/scripts/20260502_unified_migration.sql`
+- **Schema Change**: Added `is_deleted BOOLEAN DEFAULT FALSE` to `public.chores`.
+- **RPC `get_family_members`**: Changed from `INNER JOIN` to `LEFT JOIN` on `auth.users` to ensure members without an account are still returned.
+- **RPC `get_family_templates`**: Changed `auth.users` join to `LEFT JOIN` and updated `chore_count` to ignore soft-deleted chores (`is_deleted = false`).
+- **RPC `generate_week_chores`**: Updated to generate chore instances only for `is_deleted = false AND is_backlog = false`. Pending instances whose chore was deleted, moved to a different template, or flagged as a backlog task are now correctly transitioned to a `cancelled` state.
+
+### Frontend
+- **`EditTemplateScreen.tsx`**: 
+  - Updated `fetchTemplate` to filter out deleted chores (`eq('is_deleted', false)`).
+  - Modified `handleDeleteChore` to perform a soft-delete (`update({ is_deleted: true })`) instead of a hard `.delete()` request.
+
+### Edge Functions
+- **`weekly-hive-reset`**: Updated the background cron job to gracefully ignore soft-deleted tasks (`eq('is_deleted', false)`) alongside its existing backlog filters when auto-generating new weeks.

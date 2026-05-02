@@ -36,8 +36,8 @@ BEGIN
         COUNT(c.id)                                 AS chore_count
     FROM public.weekly_templates wt
     JOIN public.members m ON m.id = wt.member_id
-    JOIN auth.users u     ON u.id = m.user_id
-    LEFT JOIN public.chores c ON c.template_id = wt.id
+    LEFT JOIN auth.users u     ON u.id = m.user_id
+    LEFT JOIN public.chores c ON c.template_id = wt.id AND c.is_deleted = false
     WHERE wt.family_id = p_family_id
     GROUP BY wt.id, m.id, u.raw_user_meta_data;
 END;
