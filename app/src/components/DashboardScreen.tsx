@@ -148,15 +148,29 @@ function ChoreCard({ instance, onMarkDone, onMarkCancelled, onViewNote }: ChoreC
             </span>
           )}
           {/* Gems Display */}
+          {/* Backlog / bonus chores: show extra reward */}
           {instance.is_backlog && instance.extra_reward > 0 && (
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 flex items-center gap-0.5 ${isCancelled ? 'bg-stone-100 text-stone-400' : 'bg-amber-50 text-amber-600'}`}>
-              <Zap className="w-2.5 h-2.5" />+{instance.extra_reward} 💎
-            </span>
+            isCancelled ? (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 flex items-center gap-0.5 bg-stone-100 text-stone-400 line-through" title="Bonus missed">
+                +{instance.extra_reward} 💎
+              </span>
+            ) : (
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 flex items-center gap-0.5 ${isDone ? 'bg-lime-50 text-lime-600' : 'bg-emerald-50 text-emerald-600'}`} title={isDone ? 'Bonus earned!' : 'Bonus reward for completing this'}>
+                +{instance.extra_reward} 💎 {isDone ? '✓' : 'bonus'}
+              </span>
+            )
           )}
+          {/* Regular chores: show penalty risk / outcome */}
           {!instance.is_backlog && instance.penalty_per_task > 0 && (
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 flex items-center gap-0.5 ${isCancelled ? 'bg-stone-100 text-stone-400' : 'bg-amber-50 text-amber-600'}`}>
-              <Zap className="w-2.5 h-2.5" />{instance.penalty_per_task} 💎
-            </span>
+            isCancelled ? (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 flex items-center gap-0.5 bg-red-50 text-red-400" title="Gems lost for missing this chore">
+                −{instance.penalty_per_task} 💎 missed
+              </span>
+            ) : isDone ? null : (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 flex items-center gap-0.5 bg-orange-50 text-orange-500" title="You'll lose this many gems if you skip this chore">
+                −{instance.penalty_per_task} 💎 if skipped
+              </span>
+            )
           )}
         </div>
         {instance.description && (
