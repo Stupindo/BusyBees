@@ -488,8 +488,12 @@ export default function DashboardScreen() {
   const pendingChores = chores.filter(c => c.status === 'pending' && !c.is_backlog);
   const pendingBacklogChores = chores.filter(c => c.status === 'pending' && c.is_backlog);
   const resolvedChores = chores.filter(c => c.status !== 'pending');
-  const doneCount = chores.filter(c => c.status === 'done').length;
-  const totalCount = chores.length;
+  
+  // Progress bar only tracks mandatory (non-backlog) chores
+  const regularChores = chores.filter(c => !c.is_backlog);
+  const totalCount = regularChores.length;
+  // Any resolved mandatory chore counts toward weekly completion progress
+  const doneCount = regularChores.filter(c => c.status !== 'pending').length;
 
   // ---------------------------------------------------------------------------
   // Render
