@@ -80,11 +80,37 @@ serve(async (req: Request) => {
       });
     }
 
+    // 1.5. Filter out families that are already settled for this week
+    const weekStartUtc = new Date(nowUtc);
+    const day = weekStartUtc.getUTCDay(); // 0=Sun
+    const diff = (day === 0 ? -6 : 1 - day);
+    weekStartUtc.setUTCDate(weekStartUtc.getUTCDate() + diff);
+    const wsOptions: Intl.DateTimeFormatOptions = { timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' };
+    const wsParts = new Intl.DateTimeFormat('en-US', wsOptions).formatToParts(weekStartUtc);
+    const currentWeekStartStr = `${wsParts.find(p=>p.type==='year')?.value}-${wsParts.find(p=>p.type==='month')?.value}-${wsParts.find(p=>p.type==='day')?.value}`;
+
+    const { data: settledFamilies, error: settledError } = await supabase
+      .from("weekly_settlements")
+      .select("family_id")
+      .in("family_id", dueFamilyIds)
+      .eq("week_start_date", currentWeekStartStr);
+    
+    if (settledError) throw settledError;
+
+    const settledIds = new Set(settledFamilies?.map(f => f.family_id) || []);
+    const familiesToProcess = dueFamilyIds.filter(id => !settledIds.has(id));
+
+    if (familiesToProcess.length === 0) {
+      return new Response(JSON.stringify({ message: "Families due for reset were already settled", dry_run }), {
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
     // 2. Process each due family
     const { data: children, error: childrenError } = await supabase
       .from("members")
       .select("id, family_id")
-      .in("family_id", dueFamilyIds)
+      .in("family_id", familiesToProcess)
       .eq("role", "child");
 
     if (childrenError) throw childrenError;
@@ -180,7 +206,27 @@ serve(async (req: Request) => {
       }
     }
 
-    return new Response(JSON.stringify({ 
+    if (!dry_run) {
+      // Mark all processed families as settled for this week
+      // Calculate current week start date
+      const weekStartUtc = new Date(nowUtc);
+      const day = weekStartUtc.getUTCDay(); // 0=Sun
+      const diff = (day === 0 ? -6 : 1 - day);
+      weekStartUtc.setUTCDate(weekStartUtc.getUTCDate() + diff);
+      const wsOptions: Intl.DateTimeFormatOptions = { timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' };
+      const wsPartsForInsert = new Intl.DateTimeFormat('en-US', wsOptions).formatToParts(weekStartUtc);
+      const insertWeekStartStr = `${wsPartsForInsert.find(p=>p.type==='year')?.value}-${wsPartsForInsert.find(p=>p.type==='month')?.value}-${wsPartsForInsert.find(p=>p.type==='day')?.value}`;
+      
+      for (const familyId of familiesToProcess) {
+         await supabase.from("weekly_settlements").insert({
+           family_id: familyId,
+           week_start_date: insertWeekStartStr,
+           is_early: false
+         });
+      }
+    }
+
+    return new Response(JSON.stringify({  
       success: true, 
       dry_run, 
       processed_families: dueFamilyIds,
