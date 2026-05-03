@@ -1,7 +1,5 @@
--- get_today_chores: Returns all chore_instances for the current ISO week (Mon–Sun)
--- for the given member, enriched with chore metadata (title, description, extra_reward, etc.).
--- Ordered: pending first, then done, then cancelled/failed; regular before backlog; alpha by title.
--- Callable via: supabase.rpc('get_today_chores', { p_member_id: X })
+-- Update get_today_chores to return penalty_per_task from weekly_templates
+-- This allows the dashboard to display the regular chore value (in gems)
 
 CREATE OR REPLACE FUNCTION public.get_today_chores(p_member_id BIGINT)
 RETURNS TABLE (

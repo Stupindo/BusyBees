@@ -18,6 +18,7 @@ export interface ChoreInstance {
   status: 'pending' | 'done' | 'cancelled' | 'failed';
   notes: string | null;
   week_start_date: string;
+  penalty_per_task: number;
 }
 
 type NoteModalMode = 'done' | 'cancel' | 'view';
@@ -59,13 +60,18 @@ function getMondayOfCurrentWeek(): Date {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function ProgressBar({ total, done }: { total: number; done: number }) {
+function ProgressBar({ total, done, potentialReward }: { total: number; done: number; potentialReward: number | null }) {
   const pct = total === 0 ? 0 : Math.round((done / total) * 100);
   return (
     <div className="bg-white rounded-2xl border border-stone-100 shadow-sm p-4">
       <div className="flex justify-between items-center mb-2">
-        <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">
+        <span className="text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center">
           Week Progress
+          {potentialReward !== null && (
+            <span className="bg-amber-50 text-amber-600 text-[10px] font-black px-2 py-0.5 rounded-full ml-2 flex items-center gap-0.5" title="Potential Gems this week">
+              <Zap className="w-3 h-3" /> {potentialReward}
+            </span>
+          )}
         </span>
         <span className="text-xs font-extrabold text-secondary">
           {done}/{total} done
@@ -141,9 +147,15 @@ function ChoreCard({ instance, onMarkDone, onMarkCancelled, onViewNote }: ChoreC
               Bonus
             </span>
           )}
-          {instance.extra_reward > 0 && (
-            <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-bold flex-shrink-0 flex items-center gap-0.5">
+          {/* Gems Display */}
+          {instance.is_backlog && instance.extra_reward > 0 && (
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 flex items-center gap-0.5 ${isCancelled ? 'bg-stone-100 text-stone-400' : 'bg-amber-50 text-amber-600'}`}>
               <Zap className="w-2.5 h-2.5" />+{instance.extra_reward} 💎
+            </span>
+          )}
+          {!instance.is_backlog && instance.penalty_per_task > 0 && (
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 flex items-center gap-0.5 ${isCancelled ? 'bg-stone-100 text-stone-400' : 'bg-amber-50 text-amber-600'}`}>
+              <Zap className="w-2.5 h-2.5" />{instance.penalty_per_task} 💎
             </span>
           )}
         </div>
@@ -334,6 +346,7 @@ export default function DashboardScreen() {
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasTemplate, setHasTemplate] = useState(false);
+  const [templateDetails, setTemplateDetails] = useState<{ total_reward: number, penalty_per_task: number } | null>(null);
 
   const [showBacklog, setShowBacklog] = useState(false);
 
@@ -379,11 +392,21 @@ export default function DashboardScreen() {
     if (!activeFamily?.id || !activeMember?.id) return;
     const { data } = await supabase
       .from('weekly_templates')
-      .select('id')
+      .select('id, total_reward, penalty_per_task')
       .eq('family_id', activeFamily.id)
       .eq('member_id', activeMember.id)
       .limit(1);
-    setHasTemplate((data || []).length > 0);
+      
+    if (data && data.length > 0) {
+      setHasTemplate(true);
+      setTemplateDetails({
+        total_reward: data[0].total_reward,
+        penalty_per_task: data[0].penalty_per_task
+      });
+    } else {
+      setHasTemplate(false);
+      setTemplateDetails(null);
+    }
   }, [activeFamily?.id, activeMember?.id]);
 
   useEffect(() => {
@@ -495,6 +518,13 @@ export default function DashboardScreen() {
   // Any resolved mandatory chore counts toward weekly completion progress
   const doneCount = regularChores.filter(c => c.status !== 'pending').length;
 
+  // Calculate potential reward based on unfinished mandatory chores
+  const unfinishedCount = regularChores.filter(c => c.status === 'pending' || c.status === 'failed').length;
+  let potentialReward: number | null = null;
+  if (templateDetails) {
+    potentialReward = Math.max(0, templateDetails.total_reward - (unfinishedCount * templateDetails.penalty_per_task));
+  }
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -533,7 +563,7 @@ export default function DashboardScreen() {
           <>
             {/* Progress bar — only show when there are chores */}
             {totalCount > 0 && (
-              <ProgressBar total={totalCount} done={doneCount} />
+              <ProgressBar total={totalCount} done={doneCount} potentialReward={potentialReward} />
             )}
 
             {/* Pending section */}

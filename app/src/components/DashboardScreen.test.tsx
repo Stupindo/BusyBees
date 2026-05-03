@@ -57,6 +57,7 @@ const pendingChore = {
   status: 'pending',
   notes: null,
   week_start_date: '2026-04-21',
+  penalty_per_task: 5,
 };
 
 const doneChore = {
@@ -65,10 +66,11 @@ const doneChore = {
   title: 'Take out trash',
   description: '',
   is_backlog: false,
-  extra_reward: 5,
+  extra_reward: 0,
   status: 'done',
   notes: 'Easy peasy!',
   week_start_date: '2026-04-21',
+  penalty_per_task: 5,
 };
 
 const cancelledChore = {
@@ -81,6 +83,7 @@ const cancelledChore = {
   status: 'cancelled',
   notes: 'No supplies',
   week_start_date: '2026-04-21',
+  penalty_per_task: 5,
 };
 
 const backlogChore = {
@@ -93,6 +96,7 @@ const backlogChore = {
   status: 'pending',
   notes: null,
   week_start_date: '2026-04-21',
+  penalty_per_task: 0,
 };
 
 // ---------------------------------------------------------------------------
