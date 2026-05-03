@@ -4,6 +4,8 @@
 --         total_reward or penalty_per_task set (NULL) default to 0 instead of
 --         producing a NULL reward that prevents any transaction from being inserted.
 --         (PostgreSQL: GREATEST(0, NULL - x) = NULL, and NULL > 0 = false)
+-- Fix 3: Backlog (bonus) chore extra_reward for completed chores is now included
+--         in the total reward calculation.
 
 CREATE OR REPLACE FUNCTION public.complete_week_early(p_family_id BIGINT)
 RETURNS JSON
@@ -16,6 +18,7 @@ DECLARE
     v_child RECORD;
     v_template RECORD;
     v_unfinished_count INT;
+    v_bonus_reward INT;
     v_reward INT;
     v_inserted_tx INT := 0;
     v_updated_chores INT := 0;
@@ -66,8 +69,19 @@ BEGIN
               AND ci.status = 'pending'
               AND c.is_backlog = false;
 
-            -- Reward = total - (unfinished x penalty), floored at 0
+            -- Reward calculation (mandatory chores base reward)
             v_reward := GREATEST(0, v_template.total_reward - (v_unfinished_count * v_template.penalty_per_task));
+
+            -- Add extra_reward for each completed backlog (bonus) chore this week
+            SELECT COALESCE(SUM(c.extra_reward), 0) INTO v_bonus_reward
+            FROM public.chore_instances ci
+            JOIN public.chores c ON ci.chore_id = c.id
+            WHERE ci.member_id = v_child.id
+              AND ci.week_start_date = v_week_start
+              AND ci.status = 'done'
+              AND c.is_backlog = true;
+
+            v_reward := v_reward + v_bonus_reward;
 
             -- Insert transaction if reward > 0
             IF v_reward > 0 THEN

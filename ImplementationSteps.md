@@ -268,3 +268,95 @@ Addressed a bug where the weekly chore "Reinitiate" button skipped members who d
 
 ### Edge Functions
 - **`weekly-hive-reset`**: Updated the background cron job to gracefully ignore soft-deleted tasks (`eq('is_deleted', false)`) alongside its existing backlog filters when auto-generating new weeks.
+
+---
+
+## 20260502 — Backlog Chore Separation on Dashboard
+
+### Summary
+Separated "Bonus Tasks" (backlog chore instances) from standard pending chores on the dashboard into a dedicated collapsible section, consistent with the existing "Completed & Cancelled" slide-out.
+
+### Frontend
+- **`DashboardScreen.tsx`**:
+  - Pending chores and pending backlog chores are now filtered into two separate lists.
+  - A new **"Bonus Tasks"** section with a toggle-able slide-out displays backlog items below the main pending list.
+  - The progress bar continues to track only mandatory (non-backlog) chores.
+
+---
+
+## 20260502 — Family Join Code Regeneration
+
+### Summary
+Added the ability for family administrators to regenerate the family's 6-digit `join_code` on demand.
+
+### Database
+- **Migration**: `db_schema/scripts/20260502_02_regenerate_join_code_migration.sql`
+- **New RPC `regenerate_join_code(p_family_id BIGINT)`** (`db_schema/02_functions/09_join_code_functions.sql`): `SECURITY DEFINER` function that verifies the caller is an admin, then generates a new unique 6-digit alphanumeric code and updates the `families` table.
+
+### Frontend
+- **`ShareFamilyCode.tsx`**: Added a "Regenerate Code" button (admin-only) that calls the new RPC and refreshes the displayed code on success.
+
+---
+
+## 20260502 — Early Week Completion Feature
+
+### Summary
+Added admin-controlled ability to manually close the current week on-demand, distributing gem rewards to all hive members immediately. The action is fully reversible.
+
+### Database
+
+#### New table: `weekly_settlements` (`db_schema/01_tables/08_weekly_settlements.sql`)
+- Tracks finalised weeks per family with `(family_id, week_start_date)` as a composite primary key.
+- `is_early BOOLEAN` distinguishes manually settled weeks from automated cron-job completions.
+- Prevents double-processing: the `weekly-hive-reset` cron job skips any family already present in this table for the current week.
+- **Migration**: `db_schema/scripts/20260502_04_weekly_settlements.sql`
+- **RLS policy**: `db_schema/scripts/20260502_06_weekly_settlements_rls.sql` — authenticated family members can SELECT their family's settlement records; writes are restricted to the `SECURITY DEFINER` RPCs.
+
+#### New RPC `complete_week_early(p_family_id BIGINT)` (`db_schema/02_functions/15_complete_week_early.sql`)
+- Verifies the caller is a family admin.
+- Guards against double-processing via `weekly_settlements`.
+- Loops over all family members who have a weekly template (not just `role = 'child'`).
+- For each member: counts still-pending mandatory chores, applies `total_reward - (unfinished × penalty)` formula, adds `extra_reward` from completed backlog chores, inserts an `[Early] Weekly allowance harvest` transaction if reward > 0, and marks remaining pending chores as `failed` with a `[System] Week completed early` note.
+- Inserts a `weekly_settlements` record to block the cron job.
+- Uses `COALESCE` throughout for NULL-safe arithmetic.
+
+#### New RPC `revert_week_early(p_family_id BIGINT)` (`db_schema/02_functions/16_revert_week_early.sql`)
+- Verifies the caller is a family admin.
+- Deletes `[Early] Weekly allowance harvest` transactions (with a 7-day safety boundary).
+- Reverts chore instances tagged `[System] Week completed early` back to `pending`, cleaning up the system note.
+- Removes the `weekly_settlements` record so the week is fully open again.
+
+#### Fix migration: `db_schema/scripts/20260502_05_fix_complete_week_early.sql`
+Deployed iteratively; final version includes all three fixes:
+1. Loop over all members with a template (not `role = 'child'` only).
+2. `COALESCE` for nullable `total_reward`/`penalty_per_task` (PostgreSQL `GREATEST(0, NULL)` = NULL, so no transaction was inserted without this fix).
+3. Backlog bonus `extra_reward` included in total reward.
+
+### Edge Functions
+- **`weekly-hive-reset/index.ts`**: Checks `weekly_settlements` before processing any family. If the family was already settled (early or by a prior cron run) for the current week it is skipped. On successful automated processing it inserts a record into `weekly_settlements`.
+- Reward calculation updated to: `max(0, total_reward - unfinished_mandatory × penalty) + sum(extra_reward for done backlog chores)`.
+
+### Frontend
+
+#### `DashboardScreen.tsx`
+- Added **Potential Gems** display inside the `ProgressBar` component, showing the currently projected gem reward using the same formula as the backend.
+- Bonus reward from completed backlog chores (`extra_reward`) is now included in the Potential Gems calculation.
+
+#### `App.tsx` — Settings → App Preferences
+- Removed the "Complete Week Early" button from the dashboard (too prominent for an infrequent action).
+- Added an **App Preferences** section to the Settings tab, visible to admins only.
+- **Weekly Settlement card** shows a contextual description and toggles between:
+  - **⚡ Complete Week Early** — triggers `complete_week_early` RPC.
+  - **↩ Revert Early Completion** — triggers `revert_week_early` RPC.
+- Settlement status is loaded from `weekly_settlements` on mount and updated directly after each action for immediate UI feedback.
+
+#### `App.tsx` — Wallet (Gems tab)
+- Replaced the hardcoded `0` placeholder with a real implementation:
+  - Fetches all transactions for the active member from the `transactions` table.
+  - Computes live balance: `sum(earning amounts) - sum(penalty/payout amounts)`.
+  - Shows a full **History** list with icon, description, date, and colour-coded amount.
+  - Shows a friendly empty state when no transactions exist.
+
+### Script Naming Convention
+All 12 existing migration scripts in `db_schema/scripts/` were renamed to follow a `YYYYMMDD_NN_description.sql` pattern (sequence number after the date) to preserve creation order when multiple scripts share the same date prefix.
+

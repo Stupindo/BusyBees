@@ -127,22 +127,51 @@ serve(async (req: Request) => {
       
       if (templateError || !template) continue;
 
-      // Count pending or failed chores from prior week
-      const { data: choresToProcess, error: choresError } = await supabase
+      // Count pending mandatory chores (is_backlog=false)
+      const { data: pendingChores, error: choresError } = await supabase
         .from("chore_instances")
-        .select("id, status")
+        .select("id, status, chore_id")
         .eq("member_id", child.id)
-        .in("status", ["pending", "failed"]);
+        .eq("status", "pending");
 
       if (choresError) throw choresError;
 
-      const unfinishedCount = choresToProcess?.length || 0;
+      // Fetch chore details to filter by is_backlog
+      const pendingIds = (pendingChores || []).map((c: any) => c.chore_id);
+      let unfinishedCount = 0;
+      if (pendingIds.length > 0) {
+        const { data: mandatoryChores } = await supabase
+          .from("chores")
+          .select("id")
+          .in("id", pendingIds)
+          .eq("is_backlog", false);
+        unfinishedCount = mandatoryChores?.length || 0;
+      }
+
+      // Sum extra_reward for done backlog chores this week
+      const { data: doneBacklogInstances } = await supabase
+        .from("chore_instances")
+        .select("chore_id")
+        .eq("member_id", child.id)
+        .eq("status", "done");
+      
+      let bonusReward = 0;
+      const doneBacklogIds = (doneBacklogInstances || []).map((c: any) => c.chore_id);
+      if (doneBacklogIds.length > 0) {
+        const { data: backlogChores } = await supabase
+          .from("chores")
+          .select("extra_reward")
+          .in("id", doneBacklogIds)
+          .eq("is_backlog", true);
+        bonusReward = (backlogChores || []).reduce((sum: number, c: any) => sum + (c.extra_reward || 0), 0);
+      }
+
       const totalReward = template.total_reward || 0;
       const penalty = template.penalty_per_task || 0;
 
-      const reward = Math.max(0, totalReward - (unfinishedCount * penalty));
+      const reward = Math.max(0, totalReward - (unfinishedCount * penalty)) + bonusReward;
       
-      logs.push({ child_id: child.id, unfinishedCount, reward });
+      logs.push({ child_id: child.id, unfinishedCount, bonusReward, reward });
 
       if (!dry_run) {
         // 3. Update Ledger

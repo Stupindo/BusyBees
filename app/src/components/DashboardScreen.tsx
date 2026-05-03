@@ -519,11 +519,14 @@ export default function DashboardScreen() {
   // Any resolved mandatory chore counts toward weekly completion progress
   const doneCount = regularChores.filter(c => c.status !== 'pending').length;
 
-  // Calculate potential reward based on unfinished mandatory chores
+  // Calculate potential reward based on unfinished mandatory chores + earned bonus chores
   const unfinishedCount = regularChores.filter(c => c.status === 'pending' || c.status === 'failed').length;
+  const bonusEarned = chores
+    .filter(c => c.is_backlog && c.status === 'done')
+    .reduce((sum, c) => sum + (c.extra_reward || 0), 0);
   let potentialReward: number | null = null;
   if (templateDetails) {
-    potentialReward = Math.max(0, templateDetails.total_reward - (unfinishedCount * templateDetails.penalty_per_task));
+    potentialReward = Math.max(0, templateDetails.total_reward - (unfinishedCount * templateDetails.penalty_per_task)) + bonusEarned;
   }
 
   // ---------------------------------------------------------------------------
