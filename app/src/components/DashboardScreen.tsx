@@ -369,6 +369,8 @@ export default function DashboardScreen() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasTemplate, setHasTemplate] = useState(false);
   const [templateDetails, setTemplateDetails] = useState<{ total_reward: number, penalty_per_task: number } | null>(null);
+  // All family templates — used by handleGenerate to regenerate for every member
+  const [familyTemplates, setFamilyTemplates] = useState<{ member_id: number }[]>([]);
 
   const [showBacklog, setShowBacklog] = useState(false);
 
@@ -412,20 +414,31 @@ export default function DashboardScreen() {
 
   const checkTemplate = useCallback(async () => {
     if (!activeFamily?.id || !activeMember?.id) return;
-    const { data } = await supabase
-      .from('weekly_templates')
-      .select('id, total_reward, penalty_per_task')
-      .eq('family_id', activeFamily.id)
-      .eq('member_id', activeMember.id)
-      .limit(1);
-      
-    if (data && data.length > 0) {
-      setHasTemplate(true);
-      setTemplateDetails({
-        total_reward: data[0].total_reward,
-        penalty_per_task: data[0].penalty_per_task
-      });
+
+    // Fetch all family templates via RPC (same data the settings screen uses)
+    const { data: allTemplates } = await supabase.rpc('get_family_templates', {
+      p_family_id: activeFamily.id,
+    });
+
+    if (allTemplates && allTemplates.length > 0) {
+      setFamilyTemplates(allTemplates as { member_id: number }[]);
+
+      // Determine whether the current member has a template (for EmptyState)
+      const myTemplate = (allTemplates as { member_id: number; total_reward: number; penalty_per_task: number }[])
+        .find(t => t.member_id === activeMember.id);
+
+      if (myTemplate) {
+        setHasTemplate(true);
+        setTemplateDetails({
+          total_reward: myTemplate.total_reward,
+          penalty_per_task: myTemplate.penalty_per_task,
+        });
+      } else {
+        setHasTemplate(false);
+        setTemplateDetails(null);
+      }
     } else {
+      setFamilyTemplates([]);
       setHasTemplate(false);
       setTemplateDetails(null);
     }
@@ -444,23 +457,35 @@ export default function DashboardScreen() {
     if (!activeFamily?.id || !activeMember?.id) return;
     setIsGenerating(true);
 
-    const { data, error: genErr } = await supabase.rpc('generate_week_chores', {
-      p_family_id: activeFamily.id,
-      p_member_id: activeMember.id,
-    });
+    // Generate chores for every family member who has a template,
+    // mirroring the "Reinitiate" button in Settings › Chore Templates.
+    const targets = familyTemplates.length > 0
+      ? familyTemplates
+      : [{ member_id: activeMember.id }]; // fallback: at least generate for self
+
+    let anyError = false;
+    for (const t of targets) {
+      const { data, error: genErr } = await supabase.rpc('generate_week_chores', {
+        p_family_id: activeFamily.id,
+        p_member_id: t.member_id,
+      });
+
+      if (genErr) {
+        console.error('generate_week_chores error for member', t.member_id, genErr);
+        anyError = true;
+        continue;
+      }
+
+      const result = data as { inserted: number; cancelled: number; error?: string };
+      if (result?.error) {
+        console.warn('generate_week_chores returned error for member', t.member_id, result.error);
+      }
+    }
 
     setIsGenerating(false);
 
-    if (genErr) {
-      console.error('generate_week_chores error:', genErr);
-      alert('Failed to generate chores. Please try again.');
-      return;
-    }
-
-    const result = data as { inserted: number; cancelled: number; error?: string };
-    if (result?.error) {
-      alert(result.error);
-      return;
+    if (anyError) {
+      alert('Some members\' chores could not be generated. Please try again.');
     }
 
     await fetchChores();
