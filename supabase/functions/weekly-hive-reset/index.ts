@@ -216,20 +216,59 @@ serve(async (req: Request) => {
 
         const { data: templateChores, error: tChoresError } = await supabase
            .from("chores")
-           .select("id, is_backlog")
+           .select("id, is_backlog, frequency, recurrence_days")
            .eq("template_id", template.id)
            .eq("is_deleted", false); // Skip deleted
 
         if (!tChoresError && templateChores) {
-           const newInstances = templateChores.map((tc: any) => ({
-             chore_id: tc.id,
-             member_id: child.id,
-             status: "pending",
-             week_start_date: weekStartDateStr
-           }));
+           // --- Weekly chores: one instance per week (instance_date = NULL) ---
+           const weeklyInstances = templateChores
+             .filter((tc: any) => tc.frequency !== 'daily')
+             .map((tc: any) => ({
+               chore_id: tc.id,
+               member_id: child.id,
+               status: "pending",
+               week_start_date: weekStartDateStr,
+               instance_date: null,
+             }));
 
-           if (newInstances.length > 0) {
-             await supabase.from("chore_instances").insert(newInstances);
+           if (weeklyInstances.length > 0) {
+             await supabase.from("chore_instances").insert(weeklyInstances);
+           }
+
+           // --- Daily chores: one instance per applicable day of the new week ---
+           const dailyChores = templateChores.filter((tc: any) => tc.frequency === 'daily');
+           if (dailyChores.length > 0) {
+             const dailyInstances: any[] = [];
+             // Generate series for the 7 days of the new week
+             for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+               const dayDate = new Date(weekStartDateStr);
+               dayDate.setUTCDate(dayDate.getUTCDate() + dayOffset);
+               // ISO day-of-week: 1=Mon … 7=Sun
+               const isoDay = dayDate.getUTCDay() === 0 ? 7 : dayDate.getUTCDay();
+               const dayParts = new Intl.DateTimeFormat('en-US', {
+                 timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit'
+               }).formatToParts(dayDate);
+               const dayStr = `${dayParts.find(p => p.type === 'year')?.value}-${dayParts.find(p => p.type === 'month')?.value}-${dayParts.find(p => p.type === 'day')?.value}`;
+
+               for (const dc of dailyChores) {
+                 const days: number[] | null = dc.recurrence_days;
+                 // Applicable if recurrence_days is null (all days) or this day is in the array
+                 if (days === null || days.includes(isoDay)) {
+                   dailyInstances.push({
+                     chore_id: dc.id,
+                     member_id: child.id,
+                     status: "pending",
+                     week_start_date: weekStartDateStr,
+                     instance_date: dayStr,
+                   });
+                 }
+               }
+             }
+
+             if (dailyInstances.length > 0) {
+               await supabase.from("chore_instances").insert(dailyInstances);
+             }
            }
         }
       }

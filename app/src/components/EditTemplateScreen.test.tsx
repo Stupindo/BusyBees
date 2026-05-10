@@ -36,6 +36,8 @@ const MOCK_CHORES = [
     is_backlog: false,
     extra_reward: 0,
     description: null,
+    frequency: 'weekly',
+    recurrence_days: null,
   },
   {
     id: 12,
@@ -44,21 +46,36 @@ const MOCK_CHORES = [
     is_backlog: true,
     extra_reward: 20,
     description: 'Every corner!',
+    frequency: 'weekly',
+    recurrence_days: null,
   },
 ];
+
+const MOCK_DAILY_CHORE = {
+  id: 13,
+  title: 'Brush teeth',
+  template_id: 1,
+  is_backlog: false,
+  extra_reward: 0,
+  description: null,
+  frequency: 'daily',
+  recurrence_days: [1, 3, 6], // Mon, Wed, Sat
+};
 
 const ADMIN_MEMBER = { id: 200, role: 'parent', is_admin: true };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function buildFromChain(template = MOCK_TEMPLATE, chores = MOCK_CHORES) {
-  // We need to handle chained calls: supabase.from(table).select(...).eq(...).single()
-  // and                              supabase.from(table).select(...).eq(...).order(...)
-  const makeSingleChain = (data: unknown) => ({
+  // chores query: .select('*').eq('template_id', id).eq('is_deleted', false).order('id')
+  // templates query: .select('*').eq('id', id).single()
+  const makeChoresChain = (data: unknown) => ({
     select: () => ({
       eq: () => ({
+        eq: () => ({
+          order: () => Promise.resolve({ data, error: null }),
+        }),
         single: () => Promise.resolve({ data, error: null }),
-        order: () => Promise.resolve({ data: chores, error: null }),
       }),
     }),
     update: () => ({ eq: () => Promise.resolve({ error: null }) }),
@@ -70,10 +87,19 @@ function buildFromChain(template = MOCK_TEMPLATE, chores = MOCK_CHORES) {
     delete: () => ({ eq: () => Promise.resolve({ error: null }) }),
   });
 
+  const makeTemplateChain = (data: unknown) => ({
+    select: () => ({
+      eq: () => ({
+        single: () => Promise.resolve({ data, error: null }),
+      }),
+    }),
+    update: () => ({ eq: () => Promise.resolve({ error: null }) }),
+  });
+
   (supabase.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
-    if (table === 'weekly_templates') return makeSingleChain(template);
-    if (table === 'chores') return makeSingleChain(chores);
-    return makeSingleChain(null);
+    if (table === 'weekly_templates') return makeTemplateChain(template);
+    if (table === 'chores') return makeChoresChain(chores);
+    return makeChoresChain(null);
   });
 }
 
@@ -103,8 +129,10 @@ describe('EditTemplateScreen', () => {
     (supabase.from as ReturnType<typeof vi.fn>).mockReturnValue({
       select: () => ({
         eq: () => ({
+          eq: () => ({
+            order: () => new Promise(() => {}),
+          }),
           single: () => new Promise(() => {}),
-          order: () => new Promise(() => {}),
         }),
       }),
     });
@@ -212,7 +240,7 @@ describe('EditTemplateScreen', () => {
       }
       if (table === 'chores') {
         return {
-          select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }),
+          select: () => ({ eq: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }) }),
           insert: mockInsert,
         };
       }
@@ -249,8 +277,10 @@ describe('EditTemplateScreen', () => {
     (supabase.from as ReturnType<typeof vi.fn>).mockReturnValue({
       select: () => ({
         eq: () => ({
+          eq: () => ({
+            order: () => Promise.resolve({ data: [], error: null }),
+          }),
           single: () => Promise.resolve({ data: null, error: { message: 'Not found' } }),
-          order: () => Promise.resolve({ data: [], error: null }),
         }),
       }),
     });
@@ -267,6 +297,94 @@ describe('EditTemplateScreen', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/No chores yet/i)).toBeInTheDocument();
+    });
+  });
+
+  it('shows Daily Chore toggle in the add modal', async () => {
+    buildFromChain();
+    renderScreen();
+
+    await waitFor(() => screen.getByText('Wash dishes'));
+    fireEvent.click(document.getElementById('add-chore-btn')!);
+
+    await waitFor(() => {
+      expect(document.getElementById('chore-daily-toggle')).toBeInTheDocument();
+    });
+  });
+
+  it('shows weekday picker when Daily Chore toggle is enabled', async () => {
+    buildFromChain();
+    renderScreen();
+
+    await waitFor(() => screen.getByText('Wash dishes'));
+    fireEvent.click(document.getElementById('add-chore-btn')!);
+
+    // Toggle the daily switch on
+    const dailyToggle = document.getElementById('chore-daily-toggle') as HTMLInputElement;
+    fireEvent.click(dailyToggle);
+
+    await waitFor(() => {
+      // At least Mon and Sat day buttons should be visible
+      expect(document.getElementById('day-btn-1')).toBeInTheDocument(); // Mon
+      expect(document.getElementById('day-btn-6')).toBeInTheDocument(); // Sat
+      // Backlog toggle should be hidden
+      expect(document.getElementById('chore-backlog-toggle')).not.toBeInTheDocument();
+    });
+  });
+
+  it('renders Daily badge and day summary for daily chores in list', async () => {
+    buildFromChain(MOCK_TEMPLATE, [MOCK_DAILY_CHORE]);
+    renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getByText('Brush teeth')).toBeInTheDocument();
+      expect(screen.getByText('Daily')).toBeInTheDocument();
+      // recurrence_days [1,3,6] = Mon, Wed, Sat
+      expect(screen.getByText('Mon, Wed, Sat')).toBeInTheDocument();
+    });
+  });
+
+  it('includes frequency and recurrence_days in save payload', async () => {
+    const mockSingle = vi.fn().mockResolvedValue({
+      data: { id: 99, title: 'Brush teeth', template_id: 1, is_backlog: false, extra_reward: 0, description: null, frequency: 'daily', recurrence_days: null },
+      error: null,
+    });
+    const mockSelect = vi.fn().mockReturnValue({ single: mockSingle });
+    const mockInsert = vi.fn().mockReturnValue({ select: mockSelect });
+
+    (supabase.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
+      if (table === 'weekly_templates') {
+        return {
+          select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: MOCK_TEMPLATE, error: null }) }) }),
+        };
+      }
+      if (table === 'chores') {
+        return {
+          select: () => ({ eq: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }) }),
+          insert: mockInsert,
+        };
+      }
+      return {};
+    });
+
+    renderScreen();
+    await waitFor(() => screen.getByText('Add Chore'));
+    fireEvent.click(screen.getByText('Add Chore'));
+
+    // Fill title
+    fireEvent.change(screen.getByLabelText(/Chore Title/i), { target: { value: 'Brush teeth' } });
+
+    // Enable daily mode
+    const dailyToggle = document.getElementById('chore-daily-toggle') as HTMLInputElement;
+    fireEvent.click(dailyToggle);
+
+    // Submit
+    fireEvent.click(document.getElementById('save-chore-btn')!);
+
+    await waitFor(() => {
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({ frequency: 'daily', recurrence_days: null })
+      );
     });
   });
 });

@@ -58,6 +58,9 @@ const pendingChore = {
   notes: null,
   week_start_date: '2026-04-21',
   penalty_per_task: 5,
+  frequency: 'weekly',
+  recurrence_days: null,
+  instance_date: null,
 };
 
 const doneChore = {
@@ -71,6 +74,9 @@ const doneChore = {
   notes: 'Easy peasy!',
   week_start_date: '2026-04-21',
   penalty_per_task: 5,
+  frequency: 'weekly',
+  recurrence_days: null,
+  instance_date: null,
 };
 
 const cancelledChore = {
@@ -84,6 +90,9 @@ const cancelledChore = {
   notes: 'No supplies',
   week_start_date: '2026-04-21',
   penalty_per_task: 5,
+  frequency: 'weekly',
+  recurrence_days: null,
+  instance_date: null,
 };
 
 const backlogChore = {
@@ -97,6 +106,25 @@ const backlogChore = {
   notes: null,
   week_start_date: '2026-04-21',
   penalty_per_task: 0,
+  frequency: 'weekly',
+  recurrence_days: null,
+  instance_date: null,
+};
+
+const dailyChore = {
+  instance_id: 5,
+  chore_id: 105,
+  title: 'Brush teeth',
+  description: 'Morning and night',
+  is_backlog: false,
+  extra_reward: 0,
+  status: 'pending',
+  notes: null,
+  week_start_date: '2026-04-21',
+  penalty_per_task: 5,
+  frequency: 'daily',
+  recurrence_days: null,
+  instance_date: '2026-04-24', // today's date for the test
 };
 
 // ---------------------------------------------------------------------------
@@ -220,8 +248,14 @@ describe('DashboardScreen', () => {
     });
   });
 
-  it('shows extra reward badge on chore with bonus', async () => {
-    mockWithChores([doneChore]);
+  it('shows extra reward badge on done backlog chore', async () => {
+    const doneBacklogChore = {
+      ...backlogChore,
+      instance_id: 99,
+      status: 'done',
+      extra_reward: 10,
+    };
+    mockWithChores([doneBacklogChore]);
     render(<DashboardScreen />);
     // Expand the resolved section
     await waitFor(() => {
@@ -229,7 +263,7 @@ describe('DashboardScreen', () => {
       fireEvent.click(toggleBtn);
     });
     await waitFor(() => {
-      expect(screen.getByText(/\+5/)).toBeTruthy();
+      expect(screen.getByText(/\+10/)).toBeTruthy();
     });
   });
 
@@ -345,4 +379,15 @@ describe('DashboardScreen', () => {
       expect(screen.getByText(/failed to load/i)).toBeTruthy();
     });
   });
+
+  it('renders Daily badge for a daily chore instance', async () => {
+    mockWithChores([pendingChore, dailyChore]);
+    render(<DashboardScreen />);
+    await waitFor(() => {
+      expect(screen.getByText('Brush teeth')).toBeTruthy();
+      // The teal 'Daily' badge should be visible
+      expect(screen.getByText('Daily')).toBeTruthy();
+    });
+  });
 });
+

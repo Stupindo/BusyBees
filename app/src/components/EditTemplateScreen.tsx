@@ -15,6 +15,8 @@ export interface Chore {
   is_backlog: boolean;
   extra_reward: number;
   description: string | null;
+  frequency: 'weekly' | 'daily';
+  recurrence_days: number[] | null; // null = all days; only used when frequency='daily'
 }
 
 interface Template {
@@ -30,6 +32,28 @@ interface ChoreFormState {
   description: string;
   extra_reward: string;
   is_backlog: boolean;
+  frequency: 'weekly' | 'daily';
+  recurrence_days: number[]; // empty = all days when frequency='daily'
+}
+
+// ISO weekday labels for the picker: 1=Mon … 7=Sun
+const WEEKDAYS: { value: number; label: string; short: string }[] = [
+  { value: 1, label: 'Monday',    short: 'Mon' },
+  { value: 2, label: 'Tuesday',   short: 'Tue' },
+  { value: 3, label: 'Wednesday', short: 'Wed' },
+  { value: 4, label: 'Thursday',  short: 'Thu' },
+  { value: 5, label: 'Friday',    short: 'Fri' },
+  { value: 6, label: 'Saturday',  short: 'Sat' },
+  { value: 7, label: 'Sunday',    short: 'Sun' },
+];
+
+function formatRecurrenceDays(days: number[] | null): string {
+  if (!days || days.length === 0) return 'Every day';
+  return days
+    .slice()
+    .sort((a, b) => a - b)
+    .map(d => WEEKDAYS.find(w => w.value === d)?.short ?? d)
+    .join(', ');
 }
 
 const defaultChoreForm = (): ChoreFormState => ({
@@ -37,6 +61,8 @@ const defaultChoreForm = (): ChoreFormState => ({
   description: '',
   extra_reward: '0',
   is_backlog: false,
+  frequency: 'weekly',
+  recurrence_days: [],
 });
 
 // ---------------------------------------------------------------------------
@@ -142,6 +168,8 @@ export default function EditTemplateScreen() {
       description: chore.description || '',
       extra_reward: String(chore.extra_reward),
       is_backlog: chore.is_backlog,
+      frequency: chore.frequency ?? 'weekly',
+      recurrence_days: chore.recurrence_days ?? [],
     });
     setEditingChore(chore);
     setChoreModal('edit');
@@ -162,7 +190,12 @@ export default function EditTemplateScreen() {
       title: choreForm.title.trim(),
       description: choreForm.description.trim() || null,
       extra_reward: parseInt(choreForm.extra_reward, 10) || 0,
-      is_backlog: choreForm.is_backlog,
+      is_backlog: choreForm.frequency === 'daily' ? false : choreForm.is_backlog,
+      frequency: choreForm.frequency,
+      // null means every day; only persist the array when specific days are chosen
+      recurrence_days: choreForm.frequency === 'daily' && choreForm.recurrence_days.length > 0
+        ? choreForm.recurrence_days
+        : null,
     };
 
     if (choreModal === 'add') {
@@ -355,7 +388,17 @@ export default function EditTemplateScreen() {
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
                           <span className="font-bold text-secondary truncate">{chore.title}</span>
-                          {chore.is_backlog && (
+                          {chore.frequency === 'daily' && (
+                            <span className="text-[10px] bg-teal-50 text-teal-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider flex-shrink-0">
+                              Daily
+                            </span>
+                          )}
+                          {chore.frequency === 'daily' && (
+                            <span className="text-[10px] bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full font-medium flex-shrink-0">
+                              {formatRecurrenceDays(chore.recurrence_days)}
+                            </span>
+                          )}
+                          {chore.frequency !== 'daily' && chore.is_backlog && (
                             <span className="text-[10px] bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider flex-shrink-0">
                               Backlog
                             </span>
@@ -467,7 +510,68 @@ export default function EditTemplateScreen() {
                 />
               </div>
 
-              {/* Is Backlog toggle */}
+              {/* Is Daily Chore toggle */}
+              <div className="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
+                <div>
+                  <span className="block text-sm font-bold text-secondary">Daily Chore</span>
+                  <span className="text-xs font-medium text-stone-500">
+                    Creates one instance per day (or selected days)
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    id="chore-daily-toggle"
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={choreForm.frequency === 'daily'}
+                    onChange={e => setChoreForm(f => ({
+                      ...f,
+                      frequency: e.target.checked ? 'daily' : 'weekly',
+                      // Reset backlog when switching to daily
+                      is_backlog: e.target.checked ? false : f.is_backlog,
+                      recurrence_days: [],
+                    }))}
+                  />
+                  <div className="w-11 h-6 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500" />
+                </label>
+              </div>
+
+              {/* Weekday picker — only shown for daily chores */}
+              {choreForm.frequency === 'daily' && (
+                <div className="p-4 bg-stone-50 rounded-xl border border-stone-100">
+                  <span className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-3">
+                    Active days <span className="font-normal normal-case">(leave all unchecked = every day)</span>
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {WEEKDAYS.map(day => {
+                      const checked = choreForm.recurrence_days.includes(day.value);
+                      return (
+                        <button
+                          key={day.value}
+                          type="button"
+                          id={`day-btn-${day.value}`}
+                          onClick={() => setChoreForm(f => ({
+                            ...f,
+                            recurrence_days: checked
+                              ? f.recurrence_days.filter(d => d !== day.value)
+                              : [...f.recurrence_days, day.value].sort((a, b) => a - b),
+                          }))}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                            checked
+                              ? 'bg-teal-500 text-white'
+                              : 'bg-stone-200 text-stone-500 hover:bg-stone-300'
+                          }`}
+                        >
+                          {day.short}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Is Backlog toggle — hidden for daily chores */}
+              {choreForm.frequency !== 'daily' && (
               <div className="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
                 <div>
                   <span className="block text-sm font-bold text-secondary">Backlog Chore</span>
@@ -486,6 +590,7 @@ export default function EditTemplateScreen() {
                   <div className="w-11 h-6 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-dark" />
                 </label>
               </div>
+              )}
 
               {/* Actions */}
               <div className="flex gap-3 pt-2">

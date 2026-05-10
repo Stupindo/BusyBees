@@ -1,3 +1,115 @@
+-- Migration: 20260510_01_daily_chores
+-- Adds support for daily recurring chores.
+--
+-- Changes:
+--   1. chores.frequency        TEXT  DEFAULT 'weekly' — 'weekly' | 'daily'
+--   2. chores.recurrence_days  INT[] DEFAULT NULL     — ISO weekday numbers (1=Mon…7=Sun);
+--                                                       NULL means every day (only relevant when frequency='daily')
+--   3. chore_instances.instance_date DATE DEFAULT NULL — the specific calendar date for a daily instance;
+--                                                        NULL for weekly instances
+--   4. get_today_chores()   — updated to filter daily instances by CURRENT_DATE and return new fields
+--   5. generate_week_chores() — updated to handle daily chores (one instance per applicable day)
+
+-- ============================================================
+-- PART 1: Schema changes
+-- ============================================================
+
+-- 1. chores — frequency
+ALTER TABLE public.chores
+    ADD COLUMN IF NOT EXISTS frequency TEXT NOT NULL DEFAULT 'weekly'
+        CHECK (frequency IN ('weekly', 'daily'));
+
+-- 2. chores — recurrence_days
+ALTER TABLE public.chores
+    ADD COLUMN IF NOT EXISTS recurrence_days INT[] DEFAULT NULL;
+
+-- 3. chore_instances — instance_date
+ALTER TABLE public.chore_instances
+    ADD COLUMN IF NOT EXISTS instance_date DATE DEFAULT NULL;
+
+-- ============================================================
+-- PART 2: Updated functions
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- get_today_chores: Returns chore_instances for the current ISO week (Mon–Sun)
+-- for the given member, enriched with chore metadata.
+--
+-- Rules:
+--   - Weekly chores (frequency = 'weekly'): all instances for the week are returned
+--     (instance_date IS NULL).
+--   - Daily chores (frequency = 'daily'): only the instance for TODAY is returned
+--     (instance_date = CURRENT_DATE).
+--
+-- Ordered: pending first, then done, then cancelled/failed; regular before backlog; alpha by title.
+-- Callable via: supabase.rpc('get_today_chores', { p_member_id: X })
+-- ------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.get_today_chores(p_member_id BIGINT)
+RETURNS TABLE (
+    instance_id      BIGINT,
+    chore_id         BIGINT,
+    title            TEXT,
+    description      TEXT,
+    is_backlog       BOOLEAN,
+    extra_reward     INT,
+    status           TEXT,
+    notes            TEXT,
+    week_start_date  DATE,
+    penalty_per_task INT,
+    frequency        TEXT,
+    recurrence_days  INT[],
+    instance_date    DATE
+)
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    v_week_start DATE;
+BEGIN
+    -- ISO week starts on Monday
+    v_week_start := date_trunc('week', CURRENT_DATE)::DATE;
+
+    RETURN QUERY
+    SELECT
+        ci.id               AS instance_id,
+        ci.chore_id,
+        c.title,
+        c.description,
+        c.is_backlog,
+        c.extra_reward,
+        ci.status,
+        ci.notes,
+        ci.week_start_date,
+        wt.penalty_per_task,
+        c.frequency,
+        c.recurrence_days,
+        ci.instance_date
+    FROM public.chore_instances ci
+    JOIN public.chores c ON c.id = ci.chore_id
+    JOIN public.weekly_templates wt ON wt.id = c.template_id
+    WHERE ci.member_id       = p_member_id
+      AND ci.week_start_date = v_week_start
+      -- Weekly chores: no date filter (instance_date IS NULL)
+      -- Daily chores: only today's instance
+      AND (
+          c.frequency = 'weekly'
+          OR (c.frequency = 'daily' AND ci.instance_date = CURRENT_DATE)
+      )
+    ORDER BY
+        CASE ci.status
+            WHEN 'pending'   THEN 1
+            WHEN 'done'      THEN 2
+            WHEN 'cancelled' THEN 3
+            WHEN 'failed'    THEN 4
+            ELSE 5
+        END,
+        c.is_backlog,
+        c.title;
+END;
+$$;
+
+-- ------------------------------------------------------------
 -- generate_week_chores: Merge function for the current ISO week.
 --
 -- Strategy:
@@ -19,6 +131,7 @@
 --
 -- Returns JSON: { "inserted": N, "cancelled": N }
 -- Callable via: supabase.rpc('generate_week_chores', { p_family_id: X, p_member_id: Y })
+-- ------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.generate_week_chores(
     p_family_id  BIGINT,
@@ -165,3 +278,4 @@ BEGIN
     RETURN json_build_object('inserted', v_inserted, 'cancelled', v_cancelled);
 END;
 $$;
+

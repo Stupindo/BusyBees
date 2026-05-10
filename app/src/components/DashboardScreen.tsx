@@ -19,6 +19,9 @@ export interface ChoreInstance {
   notes: string | null;
   week_start_date: string;
   penalty_per_task: number;
+  frequency: 'weekly' | 'daily';
+  recurrence_days: number[] | null;
+  instance_date: string | null; // ISO date string for daily instances, null for weekly
 }
 
 type NoteModalMode = 'done' | 'cancel' | 'view';
@@ -142,6 +145,11 @@ function ChoreCard({ instance, onMarkDone, onMarkCancelled, onViewNote }: ChoreC
           >
             {instance.title}
           </span>
+          {instance.frequency === 'daily' && (
+            <span className="text-[10px] bg-teal-50 text-teal-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider flex-shrink-0">
+              Daily
+            </span>
+          )}
           {instance.is_backlog && (
             <span className="text-[10px] bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider flex-shrink-0">
               Bonus

@@ -1,5 +1,12 @@
--- get_today_chores: Returns all chore_instances for the current ISO week (Mon–Sun)
--- for the given member, enriched with chore metadata (title, description, extra_reward, etc.).
+-- get_today_chores: Returns chore_instances for the current ISO week (Mon–Sun)
+-- for the given member, enriched with chore metadata.
+--
+-- Rules:
+--   - Weekly chores (frequency = 'weekly'): all instances for the week are returned
+--     (instance_date IS NULL).
+--   - Daily chores (frequency = 'daily'): only the instance for TODAY is returned
+--     (instance_date = CURRENT_DATE).
+--
 -- Ordered: pending first, then done, then cancelled/failed; regular before backlog; alpha by title.
 -- Callable via: supabase.rpc('get_today_chores', { p_member_id: X })
 
@@ -14,7 +21,10 @@ RETURNS TABLE (
     status           TEXT,
     notes            TEXT,
     week_start_date  DATE,
-    penalty_per_task INT
+    penalty_per_task INT,
+    frequency        TEXT,
+    recurrence_days  INT[],
+    instance_date    DATE
 )
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
@@ -36,12 +46,21 @@ BEGIN
         ci.status,
         ci.notes,
         ci.week_start_date,
-        wt.penalty_per_task
+        wt.penalty_per_task,
+        c.frequency,
+        c.recurrence_days,
+        ci.instance_date
     FROM public.chore_instances ci
     JOIN public.chores c ON c.id = ci.chore_id
     JOIN public.weekly_templates wt ON wt.id = c.template_id
-    WHERE ci.member_id      = p_member_id
+    WHERE ci.member_id       = p_member_id
       AND ci.week_start_date = v_week_start
+      -- Weekly chores: no date filter (instance_date IS NULL)
+      -- Daily chores: only today's instance
+      AND (
+          c.frequency = 'weekly'
+          OR (c.frequency = 'daily' AND ci.instance_date = CURRENT_DATE)
+      )
     ORDER BY
         CASE ci.status
             WHEN 'pending'   THEN 1
