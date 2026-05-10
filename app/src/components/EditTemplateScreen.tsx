@@ -450,9 +450,10 @@ export default function EditTemplateScreen() {
       {choreModal && (
         <div
           data-testid="chore-modal"
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
         >
-          <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl p-6 relative">
+          <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl p-6 relative overflow-y-auto max-h-[90vh]">
             {/* Close button */}
             <button
               id="close-chore-modal-btn"

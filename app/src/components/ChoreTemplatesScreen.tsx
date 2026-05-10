@@ -375,7 +375,8 @@ export default function ChoreTemplatesScreen() {
       {/* Confirmation dialog */}
       {isReinitConfirmOpen && (
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
           onClick={e => { if (e.target === e.currentTarget) setIsReinitConfirmOpen(false); }}
         >
           <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-6">

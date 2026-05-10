@@ -264,7 +264,8 @@ function NoteModal({ modal, onClose, onConfirm, isSaving }: NoteModalProps) {
   return (
     <div
       data-testid="note-modal"
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl p-6 relative">

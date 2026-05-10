@@ -360,3 +360,80 @@ Deployed iteratively; final version includes all three fixes:
 ### Script Naming Convention
 All 12 existing migration scripts in `db_schema/scripts/` were renamed to follow a `YYYYMMDD_NN_description.sql` pattern (sequence number after the date) to preserve creation order when multiple scripts share the same date prefix.
 
+---
+
+## 20260510 — Daily Recurring Chores
+
+### Summary
+
+Extended the chore system to support **daily recurrence** in addition to the existing weekly model. Admins can now configure any chore to recur on specific days of the week (or every day), and the dashboard shows only that day's instance rather than the full weekly view.
+
+### Database
+
+#### Migration: `db_schema/scripts/20260510_01_daily_chores.sql`
+
+- **`chores.frequency TEXT DEFAULT 'weekly'`** — new column accepting `'weekly'` or `'daily'`.
+- **`chores.recurrence_days INT[]  DEFAULT NULL`** — ISO weekday numbers (1=Mon … 7=Sun). `NULL` means the chore runs every day (only meaningful when `frequency = 'daily'`).
+- **`chore_instances.instance_date DATE DEFAULT NULL`** — the specific calendar date for daily instances; `NULL` for weekly instances.
+
+#### Updated RPC `get_today_chores` (`db_schema/02_functions/12_get_today_chores.sql`)
+
+- Weekly chores: returned for the whole week (no date filter, `instance_date IS NULL`).
+- Daily chores: only the **today** instance is returned (`instance_date = CURRENT_DATE`).
+- Returns the new `frequency`, `recurrence_days`, and `instance_date` columns.
+
+#### Updated RPC `generate_week_chores` (`db_schema/02_functions/13_generate_week_chores.sql`)
+
+Extended with two additional steps:
+
+- **(c) INSERT** one `pending` daily instance per applicable day of the ISO week that doesn't already exist (keyed on `chore_id + member_id + week_start_date + instance_date`). "Applicable" = `recurrence_days IS NULL` (all days) or the day's ISO DOW is in the array.
+- **(d) CANCEL** pending daily instances whose chore was removed from the template, switched back to weekly, or whose `instance_date` is no longer in the (narrowed) `recurrence_days`.
+
+### Frontend
+
+#### `EditTemplateScreen.tsx`
+
+- **Chore interface** extended with `frequency` and `recurrence_days` fields.
+- **Chore modal**: new **"Daily Chore"** toggle; when enabled, a weekday-picker grid appears (Mon–Sun buttons) — leaving all unchecked means every day.
+- Backlog toggle is hidden while "Daily Chore" is active (daily chores cannot be backlog tasks).
+- Chore list cards show a teal **Daily** badge and the active-days summary (e.g. "Mon, Wed, Fri") for daily chores.
+
+#### `DashboardScreen.tsx`
+
+- `ChoreInstance` type extended with `frequency`, `recurrence_days`, `instance_date`.
+- Daily chore cards display a teal **Daily** badge for visual distinction.
+
+---
+
+## 20260510 — Per-Chore Penalty Override
+
+### Summary
+
+Introduced an optional per-chore `penalty_per_task` override on the `chores` table. When set, it takes precedence over the global `weekly_templates.penalty_per_task` for that specific chore. When `NULL`, the template-level global penalty continues to apply — fully backward-compatible.
+
+### Database
+
+#### Migration: `db_schema/scripts/20260510_02_per_chore_penalty.sql`
+
+- **`chores.penalty_per_task INT DEFAULT NULL`** — new nullable column. `NULL` = inherit from template; a value = per-chore override.
+
+#### Updated RPC `get_today_chores` (`db_schema/02_functions/12_get_today_chores.sql`)
+
+- `penalty_per_task` is now resolved as `COALESCE(c.penalty_per_task, wt.penalty_per_task)` so the effective value (chore-level or template-level) is returned per row. The frontend does not need to perform any extra lookup.
+
+#### Updated RPC `complete_week_early` (`db_schema/02_functions/15_complete_week_early.sql`)
+
+- Reward deduction formula changed from `count × fixed_penalty` to a `SUM(COALESCE(c.penalty_per_task, template.penalty_per_task))` over still-pending mandatory chores, so each chore contributes its own effective penalty.
+
+### Frontend
+
+#### `EditTemplateScreen.tsx`
+
+- `Chore` interface: added `penalty_per_task: number | null`.
+- `ChoreFormState`: added `penalty_per_task: string` (empty string = `null`/inherit; numeric = override).
+- Chore modal: new **"⚠️ Penalty Override (gems)"** numeric input (non-backlog chores only). Placeholder shows the template global (e.g. `global: 5`). Leave blank to inherit.
+- Chore list cards: displays an orange **`−N 💎 override`** badge when a per-chore penalty is set.
+
+#### `DashboardScreen.tsx`
+
+- Potential-reward calculation updated: instead of `total_reward - unfinishedCount × templateDetails.penalty_per_task`, it now sums each pending chore's `penalty_per_task` directly (`pendingPenaltySum`). Because the SQL already resolves the effective value via `COALESCE`, no extra lookup is needed on the frontend.
