@@ -7,6 +7,9 @@
 --   - Daily chores (frequency = 'daily'): only the instance for TODAY is returned
 --     (instance_date = CURRENT_DATE).
 --
+-- penalty_per_task per row resolves as COALESCE(c.penalty_per_task, wt.penalty_per_task):
+--   chore-level override wins; falls back to the template-level global.
+--
 -- Ordered: pending first, then done, then cancelled/failed; regular before backlog; alpha by title.
 -- Callable via: supabase.rpc('get_today_chores', { p_member_id: X })
 
@@ -46,7 +49,8 @@ BEGIN
         ci.status,
         ci.notes,
         ci.week_start_date,
-        wt.penalty_per_task,
+        -- Chore-level override wins; falls back to template global
+        COALESCE(c.penalty_per_task, wt.penalty_per_task) AS penalty_per_task,
         c.frequency,
         c.recurrence_days,
         ci.instance_date

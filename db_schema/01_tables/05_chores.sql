@@ -7,5 +7,6 @@ CREATE TABLE public.chores (
     description TEXT,
     is_deleted BOOLEAN DEFAULT FALSE,
     frequency TEXT NOT NULL DEFAULT 'weekly' CHECK (frequency IN ('weekly', 'daily')),
-    recurrence_days INT[] DEFAULT NULL -- NULL = all days; array of ISO weekday nums (1=Mon…7=Sun) for 'daily' chores
+    recurrence_days INT[] DEFAULT NULL, -- NULL = all days; array of ISO weekday nums (1=Mon…7=Sun) for 'daily' chores
+    penalty_per_task INT DEFAULT NULL   -- Per-chore penalty override; NULL = use weekly_templates.penalty_per_task
 );

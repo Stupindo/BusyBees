@@ -17,6 +17,7 @@ export interface Chore {
   description: string | null;
   frequency: 'weekly' | 'daily';
   recurrence_days: number[] | null; // null = all days; only used when frequency='daily'
+  penalty_per_task: number | null;  // null = use template global; set = per-chore override
 }
 
 interface Template {
@@ -31,6 +32,7 @@ interface ChoreFormState {
   title: string;
   description: string;
   extra_reward: string;
+  penalty_per_task: string;  // empty string = null (use global); numeric string = override
   is_backlog: boolean;
   frequency: 'weekly' | 'daily';
   recurrence_days: number[]; // empty = all days when frequency='daily'
@@ -60,6 +62,7 @@ const defaultChoreForm = (): ChoreFormState => ({
   title: '',
   description: '',
   extra_reward: '0',
+  penalty_per_task: '', // empty = use template global
   is_backlog: false,
   frequency: 'weekly',
   recurrence_days: [],
@@ -167,6 +170,7 @@ export default function EditTemplateScreen() {
       title: chore.title,
       description: chore.description || '',
       extra_reward: String(chore.extra_reward),
+      penalty_per_task: chore.penalty_per_task != null ? String(chore.penalty_per_task) : '',
       is_backlog: chore.is_backlog,
       frequency: chore.frequency ?? 'weekly',
       recurrence_days: chore.recurrence_days ?? [],
@@ -190,6 +194,10 @@ export default function EditTemplateScreen() {
       title: choreForm.title.trim(),
       description: choreForm.description.trim() || null,
       extra_reward: parseInt(choreForm.extra_reward, 10) || 0,
+      // Empty string → null (use template global); numeric → override value
+      penalty_per_task: choreForm.penalty_per_task.trim() !== ''
+        ? parseInt(choreForm.penalty_per_task, 10) || 0
+        : null,
       is_backlog: choreForm.frequency === 'daily' ? false : choreForm.is_backlog,
       frequency: choreForm.frequency,
       // null means every day; only persist the array when specific days are chosen
@@ -408,6 +416,11 @@ export default function EditTemplateScreen() {
                               +{chore.extra_reward} 💰
                             </span>
                           )}
+                          {!chore.is_backlog && chore.penalty_per_task != null && (
+                            <span className="text-[10px] bg-orange-50 text-orange-500 px-2 py-0.5 rounded-full font-bold flex-shrink-0">
+                              −{chore.penalty_per_task} 💎 override
+                            </span>
+                          )}
                         </div>
                         {chore.description && (
                           <p className="text-xs text-stone-400 font-medium leading-relaxed">
@@ -509,6 +522,30 @@ export default function EditTemplateScreen() {
                   className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-secondary"
                 />
               </div>
+
+              {/* Per-chore penalty override — only for non-backlog chores */}
+              {!choreForm.is_backlog && (
+                <div>
+                  <label
+                    htmlFor="chore-penalty-input"
+                    className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2"
+                  >
+                    ⚠️ Penalty Override (gems)
+                    <span className="ml-1 font-normal normal-case text-stone-400">
+                      (leave blank to use template default)
+                    </span>
+                  </label>
+                  <input
+                    id="chore-penalty-input"
+                    type="number"
+                    min="0"
+                    value={choreForm.penalty_per_task}
+                    onChange={e => setChoreForm(f => ({ ...f, penalty_per_task: e.target.value }))}
+                    placeholder={`global: ${template?.penalty_per_task ?? 0}`}
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-secondary placeholder:font-normal placeholder:text-stone-400"
+                  />
+                </div>
+              )}
 
               {/* Is Daily Chore toggle */}
               <div className="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
