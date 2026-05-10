@@ -115,6 +115,16 @@ serve(async (req: Request) => {
 
     if (childrenError) throw childrenError;
 
+    // Use currentWeekStartStr as the week being closed, but if running exactly at Monday 00:00, 
+    // currentWeekStartStr might be the new week. To be safe, we'll use the week_start_date of their pending chores 
+    // or just rely on the existing currentWeekStartStr since it matches complete_week_early's CURRENT_DATE logic.
+    // For generating new chores, we use the week AFTER currentWeekStartStr.
+    const currentWeekStart = new Date(currentWeekStartStr);
+    const nextWeekStartUtc = new Date(currentWeekStart);
+    nextWeekStartUtc.setUTCDate(nextWeekStartUtc.getUTCDate() + 7);
+    const nwsParts = new Intl.DateTimeFormat('en-US', wsOptions).formatToParts(nextWeekStartUtc);
+    const nextWeekStartStr = `${nwsParts.find(p=>p.type==='year')?.value}-${nwsParts.find(p=>p.type==='month')?.value}-${nwsParts.find(p=>p.type==='day')?.value}`;
+
     const logs: any[] = [];
 
     for (const child of children || []) {
@@ -127,51 +137,60 @@ serve(async (req: Request) => {
       
       if (templateError || !template) continue;
 
-      // Count pending mandatory chores (is_backlog=false)
-      const { data: pendingChores, error: choresError } = await supabase
+      // Fetch all chore_instances for this member for the current week or that are still pending
+      const { data: instances, error: instancesError } = await supabase
         .from("chore_instances")
-        .select("id, status, chore_id")
+        .select(`
+          id,
+          status,
+          chore_id,
+          week_start_date,
+          chores (
+            id,
+            is_backlog,
+            extra_reward,
+            penalty_per_task
+          )
+        `)
         .eq("member_id", child.id)
-        .eq("status", "pending");
+        .in("status", ["pending", "done"]);
 
-      if (choresError) throw choresError;
+      if (instancesError) throw instancesError;
 
-      // Fetch chore details to filter by is_backlog
-      const pendingIds = (pendingChores || []).map((c: any) => c.chore_id);
+      const defaultPenalty = template.penalty_per_task || 0;
+      let penaltySum = 0;
       let unfinishedCount = 0;
-      if (pendingIds.length > 0) {
-        const { data: mandatoryChores } = await supabase
-          .from("chores")
-          .select("id")
-          .in("id", pendingIds)
-          .eq("is_backlog", false);
-        unfinishedCount = mandatoryChores?.length || 0;
-      }
-
-      // Sum extra_reward for done backlog chores this week
-      const { data: doneBacklogInstances } = await supabase
-        .from("chore_instances")
-        .select("chore_id")
-        .eq("member_id", child.id)
-        .eq("status", "done");
-      
       let bonusReward = 0;
-      const doneBacklogIds = (doneBacklogInstances || []).map((c: any) => c.chore_id);
-      if (doneBacklogIds.length > 0) {
-        const { data: backlogChores } = await supabase
-          .from("chores")
-          .select("extra_reward")
-          .in("id", doneBacklogIds)
-          .eq("is_backlog", true);
-        bonusReward = (backlogChores || []).reduce((sum: number, c: any) => sum + (c.extra_reward || 0), 0);
+      const pendingIdsToFail: number[] = [];
+
+      for (const instance of instances || []) {
+        const chore = instance.chores as any;
+        if (!chore) continue;
+
+        if (instance.status === "pending") {
+          pendingIdsToFail.push(instance.id);
+          // Only penalize non-backlog chores
+          if (!chore.is_backlog) {
+            unfinishedCount++;
+            const chorePenalty = chore.penalty_per_task !== null && chore.penalty_per_task !== undefined
+              ? chore.penalty_per_task
+              : defaultPenalty;
+            penaltySum += chorePenalty;
+          }
+        } else if (instance.status === "done" && chore.is_backlog) {
+          // Only count bonus for backlog chores completed THIS week
+          // (We check week_start_date to avoid counting past weeks if they somehow stayed in the list)
+          if (instance.week_start_date === currentWeekStartStr) {
+             bonusReward += (chore.extra_reward || 0);
+          }
+        }
       }
 
       const totalReward = template.total_reward || 0;
-      const penalty = template.penalty_per_task || 0;
 
-      const reward = Math.max(0, totalReward - (unfinishedCount * penalty)) + bonusReward;
+      const reward = Math.max(0, totalReward - penaltySum) + bonusReward;
       
-      logs.push({ child_id: child.id, unfinishedCount, bonusReward, reward });
+      logs.push({ child_id: child.id, unfinishedCount, penaltySum, bonusReward, reward });
 
       if (!dry_run) {
         // 3. Update Ledger
@@ -185,34 +204,15 @@ serve(async (req: Request) => {
         }
 
         // Mark old chore instances as 'failed' if they were pending
-        const pendingIds = choresToProcess
-            .filter((c: any) => c.status === "pending")
-            .map((c: any) => c.id);
-
-        if (pendingIds.length > 0) {
+        if (pendingIdsToFail.length > 0) {
            await supabase
              .from("chore_instances")
              .update({ status: "failed" })
-             .in("id", pendingIds);
+             .in("id", pendingIdsToFail);
         }
 
         // 4. New Week: Generate fresh chore instances based on weekly_templates
-        const familyResetsDay = dueFamilies.find(f => f.family_id === child.family_id);
-        
-        // Calculate the "next day" for week_start_date relative to family timezone
-        const nextDayDate = new Date(nowUtc);
-        nextDayDate.setUTCDate(nextDayDate.getUTCDate() + 1);
-        
-        // Form a plain date string like "2024-04-10" using Intl format parts in local tz
-        const dateOptions: Intl.DateTimeFormatOptions = { 
-          timeZone: familyResetsDay?.timezone || 'UTC', 
-          year: 'numeric', month: '2-digit', day: '2-digit' 
-        };
-        const dateParts = new Intl.DateTimeFormat('en-US', dateOptions).formatToParts(nextDayDate);
-        const y = dateParts.find(p => p.type === 'year')?.value;
-        const m = dateParts.find(p => p.type === 'month')?.value;
-        const d = dateParts.find(p => p.type === 'day')?.value;
-        const weekStartDateStr = `${y}-${m}-${d}`;
+        const weekStartDateStr = nextWeekStartStr;
 
         const { data: templateChores, error: tChoresError } = await supabase
            .from("chores")
