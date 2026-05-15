@@ -134,6 +134,7 @@ const dailyChore = {
 function mockNoChores() {
   mockRpc.mockImplementation((fn: string) => {
     if (fn === 'get_today_chores') return Promise.resolve({ data: [], error: null });
+    if (fn === 'get_family_templates') return Promise.resolve({ data: [], error: null });
     return Promise.resolve({ data: { inserted: 0, cancelled: 0 }, error: null });
   });
   mockFrom.mockReturnValue({
@@ -144,6 +145,7 @@ function mockNoChores() {
 function mockWithChores(chores: any[]) {
   mockRpc.mockImplementation((fn: string) => {
     if (fn === 'get_today_chores') return Promise.resolve({ data: chores, error: null });
+    if (fn === 'get_family_templates') return Promise.resolve({ data: [{ member_id: 1, total_reward: 50, penalty_per_task: 5 }], error: null });
     return Promise.resolve({ data: { inserted: 2, cancelled: 0 }, error: null });
   });
   mockFrom.mockReturnValue({
@@ -200,6 +202,7 @@ describe('DashboardScreen', () => {
     // Need a template to exist for the button to appear
     mockRpc.mockImplementation((fn: string) => {
       if (fn === 'get_today_chores') return Promise.resolve({ data: [], error: null });
+      if (fn === 'get_family_templates') return Promise.resolve({ data: [{ member_id: 1, total_reward: 50, penalty_per_task: 5 }], error: null });
       return Promise.resolve({ data: { inserted: 0, cancelled: 0 }, error: null });
     });
     mockFrom.mockReturnValue({
@@ -300,10 +303,49 @@ describe('DashboardScreen', () => {
     });
   });
 
+  it('restores a resolved chore to pending', async () => {
+    const updateMock = vi.fn().mockReturnValue({ eq: () => Promise.resolve({ error: null }) });
+    mockRpc.mockImplementation((fn: string) => {
+      if (fn === 'get_today_chores') return Promise.resolve({ data: [cancelledChore], error: null });
+      if (fn === 'get_family_templates') return Promise.resolve({ data: [{ member_id: 1, total_reward: 50, penalty_per_task: 5 }], error: null });
+      return Promise.resolve({ data: { inserted: 0, cancelled: 0 }, error: null });
+    });
+    mockFrom.mockReturnValue({
+      select: () => ({ eq: () => ({ eq: () => ({ limit: () => Promise.resolve({ data: [{ id: 99 }], error: null }) }) }) }),
+      update: () => ({ eq: updateMock }),
+    });
+
+    render(<DashboardScreen />);
+    
+    // Open completed/cancelled section
+    await waitFor(() => {
+      const toggleBtn = screen.getByText(/Completed & Cancelled/i);
+      fireEvent.click(toggleBtn);
+    });
+    
+    // Click on the cancelled chore to view it
+    await waitFor(() => {
+      fireEvent.click(screen.getByText('Clean windows'));
+    });
+
+    // Verify modal is open and button exists
+    expect(screen.getByTestId('note-modal')).toBeTruthy();
+    const restoreBtn = screen.getByText(/Restore to Pending/i);
+    expect(restoreBtn).toBeTruthy();
+
+    // Click restore
+    fireEvent.click(restoreBtn);
+
+    await waitFor(() => {
+      expect(updateMock).toHaveBeenCalledWith('id', cancelledChore.instance_id);
+    });
+  });
+
   it('calls supabase update with done status on confirm', async () => {
     const updateMock = vi.fn().mockReturnValue({ eq: () => Promise.resolve({ error: null }) });
     mockRpc.mockImplementation((fn: string) => {
       if (fn === 'get_today_chores') return Promise.resolve({ data: [pendingChore], error: null });
+      if (fn === 'get_family_templates') return Promise.resolve({ data: [{ member_id: 1, total_reward: 50, penalty_per_task: 5 }], error: null });
       return Promise.resolve({ data: { inserted: 0, cancelled: 0 }, error: null });
     });
     mockFrom.mockReturnValue({

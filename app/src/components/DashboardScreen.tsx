@@ -231,10 +231,11 @@ interface NoteModalProps {
   modal: NoteModalState;
   onClose: () => void;
   onConfirm: (note: string) => void;
+  onRestorePending?: (instance: ChoreInstance) => void;
   isSaving: boolean;
 }
 
-function NoteModal({ modal, onClose, onConfirm, isSaving }: NoteModalProps) {
+function NoteModal({ modal, onClose, onConfirm, onRestorePending, isSaving }: NoteModalProps) {
   const [note, setNote] = useState(modal.instance.notes || '');
 
   const isDone = modal.mode === 'done';
@@ -310,6 +311,18 @@ function NoteModal({ modal, onClose, onConfirm, isSaving }: NoteModalProps) {
             {isSaving ? 'Saving…' : confirmLabel}
           </button>
         </div>
+
+        {isView && modal.instance.status !== 'pending' && onRestorePending && (
+          <button
+            id="restore-pending-btn"
+            onClick={() => onRestorePending(modal.instance)}
+            disabled={isSaving}
+            className="w-full mt-3 py-3 bg-stone-50 text-stone-600 font-bold rounded-2xl hover:bg-stone-200 transition-colors flex items-center justify-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Restore to Pending
+          </button>
+        )}
       </div>
     </div>
   );
@@ -553,6 +566,11 @@ export default function DashboardScreen() {
     }
   };
 
+  const handleRestorePending = async (instance: ChoreInstance) => {
+    const ok = await updateInstance(instance.instance_id, 'pending', instance.notes || '');
+    if (ok) setNoteModal(null);
+  };
+
   // ---------------------------------------------------------------------------
   // Derived state
   // ---------------------------------------------------------------------------
@@ -759,6 +777,7 @@ export default function DashboardScreen() {
           modal={noteModal}
           onClose={() => setNoteModal(null)}
           onConfirm={handleModalConfirm}
+          onRestorePending={handleRestorePending}
           isSaving={isSavingNote}
         />
       )}
