@@ -347,7 +347,6 @@ function NoteModal({ modal, onClose, onConfirm, onRestorePending, isSaving }: No
                 <input
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   className="hidden"
                   onChange={handlePhotoChange}
                 />
