@@ -5,5 +5,6 @@ CREATE TABLE public.chore_instances (
     status TEXT CHECK (status IN ('pending', 'done', 'failed')),
     week_start_date DATE,
     notes TEXT,
-    instance_date DATE DEFAULT NULL -- NULL for weekly chores; specific date for daily chore instances
+    instance_date DATE DEFAULT NULL, -- NULL for weekly chores; specific date for daily chore instances
+    photo_url TEXT DEFAULT NULL
 );

@@ -452,6 +452,11 @@ Added support for user avatars (profile pictures) using a curated list of fun em
 - **`members.avatar TEXT`** — new column added to store the selected emoji (or URL in the future).
 - Updated `db_schema/01_tables/03_members.sql` definition to include `avatar TEXT`.
 
+#### Migration: `db_schema/scripts/20260515_02_update_avatar_rpcs.sql`
+- Updated **`get_family_members`** RPC to include `m.avatar` in the returned data set.
+- Updated **`get_family_templates`** RPC to include `m.avatar AS member_avatar` in the returned data set.
+- These updates ensure the newly added avatar column data successfully reaches the frontend screens.
+
 ### Frontend
 
 #### `FamilyContext.tsx`
@@ -464,3 +469,6 @@ Added support for user avatars (profile pictures) using a curated list of fun em
 
 #### `DashboardScreen.tsx`
 - **Header**: Replaced the hardcoded `🐝` in the greeting header (`{getGreeting()}... ! 🐝`) with `{activeMember?.avatar || '🐝'}`, making the dashboard more personalized.
+
+#### `ChoreTemplatesScreen.tsx`
+- **Template Member Cards**: Updated to display `template.member_avatar` or `member.avatar` instead of the role-based fallback.

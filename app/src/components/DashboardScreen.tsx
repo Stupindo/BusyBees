@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CheckCircle2, XCircle, ChevronDown, ChevronUp, Zap, RefreshCw, X, Check } from 'lucide-react';
+import { CheckCircle2, XCircle, ChevronDown, ChevronUp, Zap, RefreshCw, X, Check, Camera, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthProvider';
 import { useFamily } from '../contexts/FamilyContext';
@@ -22,6 +22,7 @@ export interface ChoreInstance {
   frequency: 'weekly' | 'daily';
   recurrence_days: number[] | null;
   instance_date: string | null; // ISO date string for daily instances, null for weekly
+  photo_url: string | null;
 }
 
 type NoteModalMode = 'done' | 'cancel' | 'view';
@@ -191,6 +192,11 @@ function ChoreCard({ instance, onMarkDone, onMarkCancelled, onViewNote }: ChoreC
             💬 {instance.notes}
           </p>
         )}
+        {instance.photo_url && !isPending && (
+          <p className="text-xs text-stone-400 font-medium mt-1 flex items-center gap-1">
+            <Camera className="w-3 h-3" /> Photo attached
+          </p>
+        )}
         {!isPending && (
           <p className="text-[10px] text-stone-300 font-medium mt-1">
             Tap to {instance.notes ? 'edit' : 'add a'} note…
@@ -230,7 +236,7 @@ function ChoreCard({ instance, onMarkDone, onMarkCancelled, onViewNote }: ChoreC
 interface NoteModalProps {
   modal: NoteModalState;
   onClose: () => void;
-  onConfirm: (note: string) => void;
+  onConfirm: (note: string, file: File | null) => void;
   onRestorePending?: (instance: ChoreInstance) => void;
   isSaving: boolean;
 }
@@ -261,6 +267,26 @@ function NoteModal({ modal, onClose, onConfirm, onRestorePending, isSaving }: No
     : isCancel
     ? 'bg-red-500 hover:bg-red-600 text-white'
     : 'bg-secondary hover:bg-black text-primary-light';
+
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
+  // Clean up object URLs to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      if (photoPreview && photoFile) {
+        URL.revokeObjectURL(photoPreview);
+      }
+    };
+  }, [photoPreview, photoFile]);
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
+    }
+  };
 
   return (
     <div
@@ -294,6 +320,53 @@ function NoteModal({ modal, onClose, onConfirm, onRestorePending, isSaving }: No
           className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary transition-all font-medium text-secondary resize-none mb-4"
         />
 
+        {isDone && (
+          <div className="mb-5">
+            <label className="block text-sm font-bold text-stone-500 mb-2 flex items-center gap-2">
+              <Camera className="w-4 h-4" /> Attach a Photo (Optional)
+            </label>
+            {photoPreview ? (
+              <div className="relative rounded-xl overflow-hidden border border-stone-200 mb-2">
+                <img src={photoPreview} alt="Preview" className="w-full h-40 object-cover" />
+                <button
+                  onClick={() => {
+                    setPhotoFile(null);
+                    setPhotoPreview(null);
+                  }}
+                  className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 backdrop-blur-md transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <label className="flex items-center justify-center w-full h-16 border-2 border-dashed border-stone-300 rounded-xl cursor-pointer hover:bg-stone-50 hover:border-primary transition-colors group">
+                <div className="flex items-center gap-2 text-stone-400 group-hover:text-primary font-medium">
+                  <ImageIcon className="w-5 h-5" />
+                  <span>Choose Image</span>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handlePhotoChange}
+                />
+              </label>
+            )}
+          </div>
+        )}
+
+        {isView && modal.instance.photo_url && (
+          <div className="mb-5">
+            <p className="text-sm font-bold text-stone-500 mb-2 flex items-center gap-2">
+              <Camera className="w-4 h-4" /> Attached Photo
+            </p>
+            <div className="rounded-xl overflow-hidden border border-stone-200">
+              <img src={modal.instance.photo_url} alt="Chore completion" className="w-full max-h-64 object-contain bg-stone-50" />
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-3">
           <button
             id="cancel-note-modal-btn"
@@ -304,7 +377,7 @@ function NoteModal({ modal, onClose, onConfirm, onRestorePending, isSaving }: No
           </button>
           <button
             id="confirm-note-modal-btn"
-            onClick={() => onConfirm(note.trim())}
+            onClick={() => onConfirm(note.trim(), photoFile)}
             disabled={isSaving}
             className={`flex-1 font-bold py-3 rounded-2xl transition-colors disabled:opacity-50 ${confirmClass}`}
           >
@@ -510,11 +583,17 @@ export default function DashboardScreen() {
   // Status update helpers
   // ---------------------------------------------------------------------------
 
-  const updateInstance = async (instanceId: number, status: ChoreInstance['status'], notes: string) => {
+  const updateInstance = async (instanceId: number, status: ChoreInstance['status'], notes: string, photoUrl?: string | null) => {
     setIsSavingNote(true);
+
+    const updatePayload: any = { status, notes: notes || null };
+    if (photoUrl !== undefined) {
+      updatePayload.photo_url = photoUrl;
+    }
+
     const { error: updErr } = await supabase
       .from('chore_instances')
-      .update({ status, notes: notes || null })
+      .update(updatePayload)
       .eq('id', instanceId);
 
     setIsSavingNote(false);
@@ -529,7 +608,7 @@ export default function DashboardScreen() {
     setChores(prev =>
       prev.map(c =>
         c.instance_id === instanceId
-          ? { ...c, status, notes: notes || null }
+          ? { ...c, status, notes: notes || null, ...(photoUrl !== undefined ? { photo_url: photoUrl } : {}) }
           : c
       )
     );
@@ -548,21 +627,52 @@ export default function DashboardScreen() {
     setNoteModal({ mode: 'view', instance });
   };
 
-  const handleModalConfirm = async (note: string) => {
+  const handleModalConfirm = async (note: string, file: File | null) => {
     if (!noteModal) return;
 
     const { mode, instance } = noteModal;
+    setIsSavingNote(true); // Start saving early so the button disables during upload
 
-    if (mode === 'done') {
-      const ok = await updateInstance(instance.instance_id, 'done', note);
-      if (ok) setNoteModal(null);
-    } else if (mode === 'cancel') {
-      const ok = await updateInstance(instance.instance_id, 'cancelled', note);
-      if (ok) setNoteModal(null);
-    } else {
-      // view/edit note — keep existing status, just update note
-      const ok = await updateInstance(instance.instance_id, instance.status, note);
-      if (ok) setNoteModal(null);
+    try {
+      let photoUrl = instance.photo_url; // keep existing by default
+
+      if (mode === 'done' && file) {
+        // Generate a random file name using a short random string + extension
+        const fileExt = file.name.split('.').pop() || 'jpg';
+        const randomString = Math.random().toString(36).substring(2, 10);
+        const filePath = `${instance.instance_id}/${randomString}.${fileExt}`;
+
+        const { error: uploadErr } = await supabase.storage
+          .from('chore-photos')
+          .upload(filePath, file);
+
+        if (uploadErr) {
+          console.error('Error uploading photo:', uploadErr);
+          alert('Failed to upload photo. Please try again.');
+          setIsSavingNote(false);
+          return;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('chore-photos')
+          .getPublicUrl(filePath);
+
+        photoUrl = publicUrl;
+      }
+
+      if (mode === 'done') {
+        const ok = await updateInstance(instance.instance_id, 'done', note, photoUrl);
+        if (ok) setNoteModal(null);
+      } else if (mode === 'cancel') {
+        const ok = await updateInstance(instance.instance_id, 'cancelled', note);
+        if (ok) setNoteModal(null);
+      } else {
+        // view/edit note — keep existing status, just update note
+        const ok = await updateInstance(instance.instance_id, instance.status, note);
+        if (ok) setNoteModal(null);
+      }
+    } finally {
+      setIsSavingNote(false);
     }
   };
 

@@ -27,7 +27,8 @@ RETURNS TABLE (
     penalty_per_task INT,
     frequency        TEXT,
     recurrence_days  INT[],
-    instance_date    DATE
+    instance_date    DATE,
+    photo_url        TEXT
 )
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
@@ -53,7 +54,8 @@ BEGIN
         COALESCE(c.penalty_per_task, wt.penalty_per_task) AS penalty_per_task,
         c.frequency,
         c.recurrence_days,
-        ci.instance_date
+        ci.instance_date,
+        ci.photo_url
     FROM public.chore_instances ci
     JOIN public.chores c ON c.id = ci.chore_id
     JOIN public.weekly_templates wt ON wt.id = c.template_id
