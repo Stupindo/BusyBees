@@ -17,6 +17,7 @@ export interface TemplateWithMember {
   member_role: 'parent' | 'child';
   member_is_admin: boolean;
   member_custom_name: string | null;
+  member_avatar: string | null;
   member_email: string | null;
   member_first_name: string | null;
   member_full_name: string | null;
@@ -320,7 +321,7 @@ export default function ChoreTemplatesScreen() {
                             : 'bg-gradient-to-br from-stone-100 to-stone-200'
                         }`}
                       >
-                        {role === 'parent' ? '👑' : '🐝'}
+                        {(template ? template.member_avatar : member.avatar) || (role === 'parent' ? '👑' : '🐝')}
                       </div>
                       <div>
                         <h3 className="text-base font-extrabold text-secondary">

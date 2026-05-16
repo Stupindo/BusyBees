@@ -7,6 +7,7 @@ RETURNS TABLE (
     role TEXT,
     is_admin BOOLEAN,
     custom_name TEXT,
+    avatar TEXT,
     email VARCHAR,
     first_name TEXT,
     full_name TEXT
@@ -29,6 +30,7 @@ BEGIN
             m.role, 
             m.is_admin, 
             m.custom_name, 
+            m.avatar,
             u.email::VARCHAR,
             (u.raw_user_meta_data->>'first_name')::TEXT as first_name,
             (u.raw_user_meta_data->>'full_name')::TEXT as full_name

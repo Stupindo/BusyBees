@@ -437,3 +437,30 @@ Introduced an optional per-chore `penalty_per_task` override on the `chores` tab
 #### `DashboardScreen.tsx`
 
 - Potential-reward calculation updated: instead of `total_reward - unfinishedCount × templateDetails.penalty_per_task`, it now sums each pending chore's `penalty_per_task` directly (`pendingPenaltySum`). Because the SQL already resolves the effective value via `COALESCE`, no extra lookup is needed on the frontend.
+
+---
+
+## 20260515 — User Avatars Implementation
+
+### Summary
+
+Added support for user avatars (profile pictures) using a curated list of fun emojis. Family members can now select a custom avatar to personalize their profile, replacing the default role-based icons.
+
+### Database
+
+#### Migration: `db_schema/scripts/20260515_01_user_avatars.sql`
+- **`members.avatar TEXT`** — new column added to store the selected emoji (or URL in the future).
+- Updated `db_schema/01_tables/03_members.sql` definition to include `avatar TEXT`.
+
+### Frontend
+
+#### `FamilyContext.tsx`
+- Extended `Member` interface to include `avatar: string | null`.
+
+#### `ManageMembersScreen.tsx`
+- **Edit Modal**: Added an Avatar selection section displaying a grid of 24 curated fun emojis (animals, monsters, robots).
+- **State & Save**: Added `editAvatar` state and included `avatar: editAvatar || null` in the `supabase.from('members').update()` call.
+- **List View**: Updated the member cards to display `member.avatar` if available, falling back to the default `👑` (parent) or `🐝` (child) icons.
+
+#### `DashboardScreen.tsx`
+- **Header**: Replaced the hardcoded `🐝` in the greeting header (`{getGreeting()}... ! 🐝`) with `{activeMember?.avatar || '🐝'}`, making the dashboard more personalized.

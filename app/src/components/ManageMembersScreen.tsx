@@ -15,9 +15,12 @@ export default function ManageMembersScreen() {
   
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [editName, setEditName] = useState('');
+  const [editAvatar, setEditAvatar] = useState('');
   const [editRole, setEditRole] = useState<'parent' | 'child'>('child');
   const [editIsAdmin, setEditIsAdmin] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const AVATAR_OPTIONS = ['🐝', '👑', '🐶', '🐱', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🦄', '🦖', '🦋', '🐢', '🐙', '👾', '🤖', '👻', '👽', '😎'];
 
   // Fetch all members of the active family
   useEffect(() => {
@@ -51,6 +54,7 @@ export default function ManageMembersScreen() {
   const handleEditClick = (member: Member) => {
     setEditingMember(member);
     setEditName(member.custom_name || '');
+    setEditAvatar(member.avatar || '');
     setEditRole(member.role);
     setEditIsAdmin(member.is_admin);
   };
@@ -64,6 +68,7 @@ export default function ManageMembersScreen() {
       .from('members')
       .update({
         custom_name: editName.trim() || null,
+        avatar: editAvatar || null,
         role: editRole,
         is_admin: editIsAdmin,
       })
@@ -77,6 +82,7 @@ export default function ManageMembersScreen() {
       setMembers(prev => prev.map(m => m.id === editingMember.id ? {
         ...m,
         custom_name: editName.trim() || null,
+        avatar: editAvatar || null,
         role: editRole,
         is_admin: editIsAdmin,
       } : m));
@@ -160,7 +166,7 @@ export default function ManageMembersScreen() {
               <div key={member.id} className="bg-white p-5 rounded-3xl shadow-sm border border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-inner ${member.role === 'parent' ? 'bg-gradient-to-br from-primary-light to-primary' : 'bg-stone-100'}`}>
-                     {member.role === 'parent' ? '👑' : '🐝'}
+                     {member.avatar || (member.role === 'parent' ? '👑' : '🐝')}
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-secondary flex items-center gap-2">
@@ -231,6 +237,22 @@ export default function ManageMembersScreen() {
                     placeholder="e.g. Mom, Dad, Timmy"
                     className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-medium text-secondary"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Avatar</label>
+                  <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 grid grid-cols-6 gap-2">
+                    {AVATAR_OPTIONS.map(avatar => (
+                      <button
+                        key={avatar}
+                        type="button"
+                        onClick={() => setEditAvatar(avatar)}
+                        className={`w-10 h-10 flex items-center justify-center text-2xl rounded-full transition-all ${editAvatar === avatar ? 'bg-primary shadow-md scale-110' : 'hover:bg-stone-200 hover:scale-105'}`}
+                      >
+                        {avatar}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {isAdmin && (

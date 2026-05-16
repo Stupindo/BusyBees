@@ -4,5 +4,6 @@ CREATE TABLE public.members (
     family_id BIGINT REFERENCES public.families(id) ON DELETE CASCADE,
     role TEXT CHECK (role IN ('parent', 'child')),
     is_admin BOOLEAN DEFAULT FALSE,
-    custom_name TEXT
+    custom_name TEXT,
+    avatar TEXT
 );

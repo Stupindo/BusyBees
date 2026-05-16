@@ -15,6 +15,7 @@ export interface Member {
   role: 'parent' | 'child';
   is_admin: boolean;
   custom_name: string | null;
+  avatar: string | null;
   families: Family | null;
   email?: string;
   first_name?: string;

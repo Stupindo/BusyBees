@@ -608,7 +608,7 @@ export default function DashboardScreen() {
       <div className="px-6 pt-10 pb-5">
         <div className="mb-1">
           <h1 className="text-3xl font-extrabold text-secondary tracking-tight">
-            {getGreeting()}{displayName ? `, ${displayName}` : ''}! 🐝
+            {getGreeting()}{displayName ? `, ${displayName}` : ''}! {activeMember?.avatar || '🐝'}
           </h1>
         </div>
         <p className="text-stone-400 font-medium text-sm">
