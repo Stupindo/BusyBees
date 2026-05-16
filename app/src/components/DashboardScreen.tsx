@@ -339,18 +339,29 @@ function NoteModal({ modal, onClose, onConfirm, onRestorePending, isSaving }: No
                 </button>
               </div>
             ) : (
-              <label className="flex items-center justify-center w-full h-16 border-2 border-dashed border-stone-300 rounded-xl cursor-pointer hover:bg-stone-50 hover:border-primary transition-colors group">
-                <div className="flex items-center gap-2 text-stone-400 group-hover:text-primary font-medium">
-                  <ImageIcon className="w-5 h-5" />
-                  <span>Choose Image</span>
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handlePhotoChange}
-                />
-              </label>
+              <div className="flex gap-3">
+                <label className="flex-1 flex flex-col items-center justify-center h-20 border-2 border-dashed border-stone-300 rounded-xl cursor-pointer hover:bg-stone-50 hover:border-primary transition-colors group">
+                  <Camera className="w-6 h-6 text-stone-400 group-hover:text-primary mb-1" />
+                  <span className="text-xs font-medium text-stone-500 group-hover:text-primary">Take Photo</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={handlePhotoChange}
+                  />
+                </label>
+                <label className="flex-1 flex flex-col items-center justify-center h-20 border-2 border-dashed border-stone-300 rounded-xl cursor-pointer hover:bg-stone-50 hover:border-primary transition-colors group">
+                  <ImageIcon className="w-6 h-6 text-stone-400 group-hover:text-primary mb-1" />
+                  <span className="text-xs font-medium text-stone-500 group-hover:text-primary">Gallery</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePhotoChange}
+                  />
+                </label>
+              </div>
             )}
           </div>
         )}
