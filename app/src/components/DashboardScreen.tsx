@@ -23,6 +23,7 @@ export interface ChoreInstance {
   recurrence_days: number[] | null;
   instance_date: string | null; // ISO date string for daily instances, null for weekly
   photo_url: string | null;
+  completed_at?: string | null;
 }
 
 type NoteModalMode = 'done' | 'cancel' | 'view';
@@ -662,6 +663,13 @@ export default function DashboardScreen() {
     if (photoUrl !== undefined) {
       updatePayload.photo_url = photoUrl;
     }
+    
+    const nowStr = new Date().toISOString();
+    if (status === 'done' || status === 'cancelled' || status === 'failed') {
+      updatePayload.completed_at = nowStr;
+    } else if (status === 'pending') {
+      updatePayload.completed_at = null;
+    }
 
     const { error: updErr } = await supabase
       .from('chore_instances')
@@ -680,7 +688,7 @@ export default function DashboardScreen() {
     setChores(prev =>
       prev.map(c =>
         c.instance_id === instanceId
-          ? { ...c, status, notes: notes || null, ...(photoUrl !== undefined ? { photo_url: photoUrl } : {}) }
+          ? { ...c, status, notes: notes || null, ...(photoUrl !== undefined ? { photo_url: photoUrl } : {}), completed_at: updatePayload.completed_at }
           : c
       )
     );

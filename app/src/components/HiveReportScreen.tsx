@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useFamily } from '../contexts/FamilyContext';
-import { Shield, Zap, ArrowLeft, Loader2, Award } from 'lucide-react';
+import { Shield, Zap, ArrowLeft, Loader2, Award, ChevronDown, ChevronUp, CheckCircle2, XCircle, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 function getMondayOfCurrentWeek(): string {
@@ -18,11 +18,14 @@ function getMondayOfCurrentWeek(): string {
 }
 
 export default function HiveReportScreen() {
-  const { activeFamily } = useFamily();
+  const { activeFamily, activeMember } = useFamily();
   const navigate = useNavigate();
 
   const [isLoading, setIsLoading] = useState(true);
   const [reportData, setReportData] = useState<any[]>([]);
+  const [expandedMemberId, setExpandedMemberId] = useState<number | null>(null);
+
+  const isAdmin = activeMember?.is_admin || activeMember?.role === 'parent';
 
   const fetchReport = useCallback(async () => {
     if (!activeFamily?.id) return;
@@ -55,7 +58,7 @@ export default function HiveReportScreen() {
     // 2. Fetch weekly chore instances (joined with chores to know if it's backlog)
     const { data: choreInstances, error: choresErr } = await supabase
       .from('chore_instances')
-      .select('member_id, status, chores (is_backlog)')
+      .select('id, member_id, status, notes, photo_url, instance_date, completed_at, chores (title, is_backlog)')
       .in('member_id', memberIds)
       .eq('week_start_date', weekStartStr);
 
@@ -105,7 +108,8 @@ export default function HiveReportScreen() {
         totalRegular,
         doneRegular,
         totalBalance,
-        weeklyEarnings
+        weeklyEarnings,
+        chores: mChores.filter(c => c.status === 'done' || c.status === 'failed' || c.status === 'cancelled')
       };
     });
 
@@ -144,10 +148,15 @@ export default function HiveReportScreen() {
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {reportData.map(member => (
+            {reportData.map(member => {
+              const isExpanded = expandedMemberId === member.id;
+              return (
               <div key={member.id} className="bg-white rounded-[2rem] shadow-sm border border-stone-100 overflow-hidden relative">
-                <div className="p-5 flex items-center gap-4 border-b border-stone-50">
-                  <div className="w-14 h-14 bg-gradient-to-br from-amber-100 to-amber-200 rounded-full flex items-center justify-center text-2xl shadow-inner border border-amber-300">
+                <div 
+                  className={`p-5 flex items-center gap-4 border-b border-stone-50 ${isAdmin ? 'cursor-pointer hover:bg-stone-50 transition-colors' : ''}`}
+                  onClick={() => isAdmin && setExpandedMemberId(isExpanded ? null : member.id)}
+                >
+                  <div className="w-14 h-14 bg-gradient-to-br from-amber-100 to-amber-200 rounded-full flex items-center justify-center text-2xl shadow-inner border border-amber-300 flex-shrink-0">
                     {member.avatar || '🐝'}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -161,6 +170,11 @@ export default function HiveReportScreen() {
                       {member.role === 'parent' ? 'Parent' : 'Child'}
                     </p>
                   </div>
+                  {isAdmin && (
+                    <div className="flex-shrink-0 text-stone-400">
+                      {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-5 grid grid-cols-2 gap-4 bg-stone-50/50">
@@ -206,8 +220,65 @@ export default function HiveReportScreen() {
                     </div>
                   </div>
                 </div>
+
+                {/* Expanded Chores List */}
+                {isAdmin && isExpanded && (
+                  <div className="bg-white border-t border-stone-100 p-5">
+                    <h4 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-4">Completed & Failed Chores</h4>
+                    {member.chores.length === 0 ? (
+                      <p className="text-sm text-stone-400 italic">No completed or failed chores yet this week.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {member.chores.map((chore: any) => {
+                          const isDone = chore.status === 'done';
+                          const leftBorderColor = isDone ? 'border-l-lime-500' : 'border-l-red-400';
+                          return (
+                            <div key={chore.id} className={`bg-stone-50 rounded-xl border border-stone-200 border-l-4 ${leftBorderColor} p-4`}>
+                              <div className="flex items-start gap-3">
+                                <div className="mt-0.5 flex-shrink-0">
+                                  {isDone ? <CheckCircle2 className="w-5 h-5 text-lime-500" /> : <XCircle className="w-5 h-5 text-red-400" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-bold text-sm text-secondary truncate">{chore.chores?.title || 'Unknown Chore'}</span>
+                                    {chore.chores?.is_backlog && (
+                                      <span className="text-[10px] bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Bonus</span>
+                                    )}
+                                  </div>
+                                  
+                                  {chore.completed_at && (
+                                    <p className="text-[10px] font-medium text-stone-400 mb-1">
+                                      <span className="font-bold text-stone-500">Completion time:</span> {new Date(chore.completed_at).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                  )}
+                                  
+                                  {chore.notes && (
+                                    <div className="bg-white rounded-lg p-2 mt-2 border border-stone-100">
+                                      <p className="text-xs text-stone-500 italic">💬 "{chore.notes}"</p>
+                                    </div>
+                                  )}
+
+                                  {chore.photo_url && (
+                                    <div className="mt-3">
+                                      <div className="text-[10px] font-bold text-stone-400 flex items-center gap-1 mb-1.5 uppercase tracking-wider">
+                                        <Camera className="w-3 h-3" /> Evidence Photo
+                                      </div>
+                                      <div className="rounded-lg overflow-hidden border border-stone-200 bg-black inline-block">
+                                        <img src={chore.photo_url} alt="Chore evidence" className="max-w-full h-32 object-contain" />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>

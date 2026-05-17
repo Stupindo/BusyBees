@@ -6,5 +6,6 @@ CREATE TABLE public.chore_instances (
     week_start_date DATE,
     notes TEXT,
     instance_date DATE DEFAULT NULL, -- NULL for weekly chores; specific date for daily chore instances
-    photo_url TEXT DEFAULT NULL
+    photo_url TEXT DEFAULT NULL,
+    completed_at TIMESTAMPTZ DEFAULT NULL
 );
