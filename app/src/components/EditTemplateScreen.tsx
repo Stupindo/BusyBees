@@ -58,6 +58,19 @@ function formatRecurrenceDays(days: number[] | null): string {
     .join(', ');
 }
 
+const SUGGESTED_CHORES = [
+  { title: 'Make bed', description: 'Make your bed neatly.', frequency: 'daily', extra_reward: '0', is_backlog: false },
+  { title: 'Brush teeth', description: 'Brush teeth morning and night.', frequency: 'daily', extra_reward: '0', is_backlog: false },
+  { title: 'Feed pet', description: 'Give food and water to the pet.', frequency: 'daily', extra_reward: '0', is_backlog: false },
+  { title: 'Do homework', description: 'Complete all school assignments.', frequency: 'daily', extra_reward: '0', is_backlog: false },
+  { title: 'Clean room', description: 'Put toys away and tidy up.', frequency: 'weekly', extra_reward: '0', is_backlog: false },
+  { title: 'Load dishwasher', description: 'Put dirty dishes in the dishwasher.', frequency: 'daily', extra_reward: '0', is_backlog: false },
+  { title: 'Empty dishwasher', description: 'Put away clean dishes.', frequency: 'weekly', extra_reward: '0', is_backlog: false },
+  { title: 'Take out trash', description: 'Take garbage and recycling outside.', frequency: 'weekly', extra_reward: '0', is_backlog: false },
+  { title: 'Sweep floor', description: 'Sweep the kitchen and dining area.', frequency: 'weekly', extra_reward: '0', is_backlog: false },
+  { title: 'Fold laundry', description: 'Fold clothes and put them away.', frequency: 'weekly', extra_reward: '0', is_backlog: false },
+];
+
 const defaultChoreForm = (): ChoreFormState => ({
   title: '',
   description: '',
@@ -469,6 +482,38 @@ export default function EditTemplateScreen() {
             </h2>
 
             <form id="chore-form" onSubmit={handleSaveChore} className="space-y-4">
+              {/* Suggested Chores Dropdown */}
+              {choreModal === 'add' && (
+                <div>
+                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">
+                    Quick Add Template (Optional)
+                  </label>
+                  <select
+                    onChange={(e) => {
+                      const chore = SUGGESTED_CHORES.find(c => c.title === e.target.value);
+                      if (chore) {
+                        setChoreForm(f => ({
+                          ...f,
+                          title: chore.title,
+                          description: chore.description,
+                          frequency: chore.frequency as 'daily' | 'weekly',
+                          extra_reward: chore.extra_reward,
+                          is_backlog: chore.is_backlog,
+                          recurrence_days: [], // Reset to all days for daily chores
+                        }));
+                      }
+                    }}
+                    defaultValue=""
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary transition-all font-medium text-secondary"
+                  >
+                    <option value="" disabled>Select a suggested chore...</option>
+                    {SUGGESTED_CHORES.map(c => (
+                      <option key={c.title} value={c.title}>{c.title}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Title */}
               <div>
                 <label
