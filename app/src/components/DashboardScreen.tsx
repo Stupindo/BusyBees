@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { CheckCircle2, XCircle, ChevronDown, ChevronUp, Zap, RefreshCw, X, Check, Camera, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthProvider';
@@ -271,6 +271,10 @@ function NoteModal({ modal, onClose, onConfirm, onRestorePending, isSaving }: No
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
+  const [showCamera, setShowCamera] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
   // Clean up object URLs to avoid memory leaks
   useEffect(() => {
     return () => {
@@ -279,6 +283,55 @@ function NoteModal({ modal, onClose, onConfirm, onRestorePending, isSaving }: No
       }
     };
   }, [photoPreview, photoFile]);
+
+  const stopCamera = useCallback(() => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setShowCamera(false);
+  }, []);
+
+  // Ensure camera tracks are stopped if modal is closed
+  useEffect(() => {
+    return () => stopCamera();
+  }, [stopCamera]);
+
+  const startCamera = async () => {
+    setShowCamera(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error("Camera access denied or error", err);
+      alert("Could not access camera. Please check permissions or ensure you are using HTTPS.");
+      setShowCamera(false);
+    }
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(blob => {
+          if (blob) {
+            const file = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
+            setPhotoFile(file);
+            setPhotoPreview(URL.createObjectURL(blob));
+            stopCamera();
+          }
+        }, 'image/jpeg', 0.8);
+      }
+    }
+  };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -325,7 +378,20 @@ function NoteModal({ modal, onClose, onConfirm, onRestorePending, isSaving }: No
             <label className="block text-sm font-bold text-stone-500 mb-2 flex items-center gap-2">
               <Camera className="w-4 h-4" /> Attach a Photo (Optional)
             </label>
-            {photoPreview ? (
+            {showCamera ? (
+              <div className="relative rounded-xl overflow-hidden border border-stone-200 mb-2 bg-black h-64 flex flex-col items-center justify-center">
+                <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                <canvas ref={canvasRef} className="hidden" />
+                <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4">
+                  <button onClick={stopCamera} className="bg-stone-600/80 hover:bg-stone-700/80 text-white rounded-full px-5 py-2 text-sm font-bold backdrop-blur transition-colors">
+                    Cancel
+                  </button>
+                  <button onClick={capturePhoto} className="bg-white hover:bg-stone-100 text-stone-900 rounded-full px-8 py-2 text-sm font-bold shadow-lg transition-colors flex items-center gap-2">
+                    <Camera className="w-4 h-4" /> Snap
+                  </button>
+                </div>
+              </div>
+            ) : photoPreview ? (
               <div className="relative rounded-xl overflow-hidden border border-stone-200 mb-2">
                 <img src={photoPreview} alt="Preview" className="w-full h-40 object-cover" />
                 <button
@@ -340,17 +406,13 @@ function NoteModal({ modal, onClose, onConfirm, onRestorePending, isSaving }: No
               </div>
             ) : (
               <div className="flex gap-3">
-                <label className="flex-1 flex flex-col items-center justify-center h-20 border-2 border-dashed border-stone-300 rounded-xl cursor-pointer hover:bg-stone-50 hover:border-primary transition-colors group">
+                <button 
+                  onClick={startCamera}
+                  className="flex-1 flex flex-col items-center justify-center h-20 border-2 border-dashed border-stone-300 rounded-xl cursor-pointer hover:bg-stone-50 hover:border-primary transition-colors group"
+                >
                   <Camera className="w-6 h-6 text-stone-400 group-hover:text-primary mb-1" />
                   <span className="text-xs font-medium text-stone-500 group-hover:text-primary">Take Photo</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    className="hidden"
-                    onChange={handlePhotoChange}
-                  />
-                </label>
+                </button>
                 <label className="flex-1 flex flex-col items-center justify-center h-20 border-2 border-dashed border-stone-300 rounded-xl cursor-pointer hover:bg-stone-50 hover:border-primary transition-colors group">
                   <ImageIcon className="w-6 h-6 text-stone-400 group-hover:text-primary mb-1" />
                   <span className="text-xs font-medium text-stone-500 group-hover:text-primary">Gallery</span>
