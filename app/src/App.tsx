@@ -11,6 +11,7 @@ import ManageMembersScreen from './components/ManageMembersScreen';
 import ChoreTemplatesScreen from './components/ChoreTemplatesScreen';
 import EditTemplateScreen from './components/EditTemplateScreen';
 import DashboardScreen from './components/DashboardScreen';
+import HiveReportScreen from './components/HiveReportScreen';
 import { supabase } from './lib/supabase';
 
 // Wallet Page
@@ -220,6 +221,15 @@ const Settings = () => {
             <span>Chore Templates</span>
             <span className="text-stone-400 group-hover:text-primary transition-colors">→</span>
           </li>
+          {isAdmin && (
+            <li
+              onClick={() => navigate('/settings/report')}
+              className="p-5 flex items-center justify-between text-stone-700 font-semibold cursor-pointer hover:bg-stone-50 transition-colors group border-t border-stone-100"
+            >
+              <span>Hive Report</span>
+              <span className="text-stone-400 group-hover:text-primary transition-colors">→</span>
+            </li>
+          )}
         </ul>
       </div>
 
@@ -299,6 +309,7 @@ const FamilyGuardedApp = () => {
         <Route path="settings/members" element={<ManageMembersScreen />} />
         <Route path="settings/templates" element={<ChoreTemplatesScreen />} />
         <Route path="settings/templates/:templateId" element={<EditTemplateScreen />} />
+        <Route path="settings/report" element={<HiveReportScreen />} />
       </Route>
     </Routes>
   );
