@@ -20,7 +20,7 @@ Here's the full review — **18 items ordered by importance**:
 
 ## 🚨 Critical (2 items)
 
-**#1 — DB schema bug: `cancelled` status missing from CHECK constraint**
++**#1 — DB schema bug: `cancelled` status missing from CHECK constraint**
 The `chore_instances` table schema only allows `('pending', 'done', 'failed')`, but the code writes `'cancelled'` everywhere. The source-of-truth DDL file is wrong — this needs an `ALTER TABLE` migration.
 
 **#2 — Public Supabase Storage for child photos**
@@ -30,7 +30,7 @@ Photos are stored with fully-public URLs (already in your TODO). Anyone with the
 
 ## 🔴 High (5 items)
 
-**#3 — `Wallet` and `Settings` pages live inside `App.tsx`**
++**#3 — `Wallet` and `Settings` pages live inside `App.tsx`**
 Two full-page components (with data fetching, state, etc.) are crammed into the router file. Extract to `WalletScreen.tsx` and `SettingsScreen.tsx`.
 
 **#4 — `isAdmin` check copy-pasted in 7 files**
