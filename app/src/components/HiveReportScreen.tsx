@@ -81,7 +81,7 @@ export default function HiveReportScreen() {
       const mChores = (choreInstances || []).filter(c => c.member_id === m.id);
       
       // Filter out backlog chores for the progress calculation
-      const regularChores = mChores.filter(c => !c.chores?.is_backlog);
+      const regularChores = mChores.filter(c => !(c.chores as any)?.is_backlog);
       const totalRegular = regularChores.length;
       const doneRegular = regularChores.filter(c => c.status !== 'pending').length;
 
@@ -240,8 +240,8 @@ export default function HiveReportScreen() {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 mb-1">
-                                    <span className="font-bold text-sm text-secondary truncate">{chore.chores?.title || 'Unknown Chore'}</span>
-                                    {chore.chores?.is_backlog && (
+                                    <span className="font-bold text-sm text-secondary truncate">{(chore.chores as any)?.title || 'Unknown Chore'}</span>
+                                    {(chore.chores as any)?.is_backlog && (
                                       <span className="text-[10px] bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Bonus</span>
                                     )}
                                   </div>
