@@ -50,7 +50,7 @@ The Dashboard's `ChoreInstance` type has `completed_at?` as optional, meaning it
 ## 🟠 Medium (6 items)
 
 **#8** — No success feedback after "Sync" chores on the Dashboard  
-**#9** — HiveReport expanded view shows no "Still Pending" chores (misleading empty state)  
++**#9** — HiveReport expanded view shows no "Still Pending" chores (misleading empty state)  
 **#10** — No shortcut from the Dashboard for a child to view their own template  
 **#11** — `💰` icon used in `EditTemplateScreen` vs `💎` everywhere else (terminology drift)  
 **#12** — All Supabase calls are inline in components — no service/API layer  
