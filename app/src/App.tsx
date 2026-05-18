@@ -1,12 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import MobileLayout from './components/MobileLayout';
 import { AuthProvider, useAuth } from './components/AuthProvider';
 import LoginScreen from './components/LoginScreen';
 import { FamilyProvider, useFamily } from './contexts/FamilyContext';
 import FamilySelectionScreen from './components/FamilySelectionScreen';
 import CreateFamilyScreen from './components/CreateFamilyScreen';
-import ShareFamilyCode from './components/ShareFamilyCode';
+
 import ManageMembersScreen from './components/ManageMembersScreen';
 import ChoreTemplatesScreen from './components/ChoreTemplatesScreen';
 import EditTemplateScreen from './components/EditTemplateScreen';
@@ -14,8 +13,6 @@ import DashboardScreen from './components/DashboardScreen';
 import HiveReportScreen from './components/HiveReportScreen';
 import WalletScreen from './components/WalletScreen';
 import SettingsScreen from './components/SettingsScreen';
-import { supabase } from './lib/supabase';
-
 
 const FamilyGuardedApp = () => {
   const { userMemberships, activeFamily, isLoadingFamilies } = useFamily();
