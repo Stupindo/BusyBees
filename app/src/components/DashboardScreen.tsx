@@ -23,7 +23,7 @@ export interface ChoreInstance {
   recurrence_days: number[] | null;
   instance_date: string | null; // ISO date string for daily instances, null for weekly
   photo_url: string | null;
-  completed_at?: string | null;
+  completed_at: string | null;
 }
 
 type NoteModalMode = 'done' | 'cancel' | 'view';

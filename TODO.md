@@ -42,7 +42,7 @@ Even exists as two separate functions within `ChoreTemplatesScreen.tsx`. Move to
 **#6 — `getMondayOfCurrentWeek` exists 3 times with different names/return types**
 `DashboardScreen`, `HiveReportScreen`, and `App.tsx` each have their own version. Move to `src/lib/dateUtils.ts`.
 
-**#7 — `get_today_chores` SQL doesn't return `completed_at`**
++**#7 — `get_today_chores` SQL doesn't return `completed_at`**
 The Dashboard's `ChoreInstance` type has `completed_at?` as optional, meaning it's never populated from the RPC. The HiveReport works around this by querying the table directly.
 
 ---

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useFamily } from '../contexts/FamilyContext';
-import { Shield, Zap, ArrowLeft, Loader2, Award, ChevronDown, ChevronUp, CheckCircle2, XCircle, Camera } from 'lucide-react';
+import { Shield, Zap, ArrowLeft, Loader2, Award, ChevronDown, ChevronUp, CheckCircle2, XCircle, Camera, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 function getMondayOfCurrentWeek(): string {
@@ -109,7 +109,7 @@ export default function HiveReportScreen() {
         doneRegular,
         totalBalance,
         weeklyEarnings,
-        chores: mChores.filter(c => c.status === 'done' || c.status === 'failed' || c.status === 'cancelled')
+        chores: mChores
       };
     });
 
@@ -224,19 +224,34 @@ export default function HiveReportScreen() {
                 {/* Expanded Chores List */}
                 {isAdmin && isExpanded && (
                   <div className="bg-white border-t border-stone-100 p-5">
-                    <h4 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-4">Completed & Failed Chores</h4>
+                    <h4 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-4">This Week's Chores</h4>
                     {member.chores.length === 0 ? (
-                      <p className="text-sm text-stone-400 italic">No completed or failed chores yet this week.</p>
+                      <p className="text-sm text-stone-400 italic">No chores assigned this week.</p>
                     ) : (
                       <div className="space-y-3">
                         {member.chores.map((chore: any) => {
                           const isDone = chore.status === 'done';
-                          const leftBorderColor = isDone ? 'border-l-lime-500' : 'border-l-red-400';
+                          const isPending = chore.status === 'pending';
+                          
+                          let leftBorderColor = 'border-l-red-400';
+                          let Icon = XCircle;
+                          let iconColor = 'text-red-400';
+                          
+                          if (isDone) {
+                            leftBorderColor = 'border-l-lime-500';
+                            Icon = CheckCircle2;
+                            iconColor = 'text-lime-500';
+                          } else if (isPending) {
+                            leftBorderColor = 'border-l-amber-400';
+                            Icon = Clock;
+                            iconColor = 'text-amber-400';
+                          }
+
                           return (
                             <div key={chore.id} className={`bg-stone-50 rounded-xl border border-stone-200 border-l-4 ${leftBorderColor} p-4`}>
                               <div className="flex items-start gap-3">
                                 <div className="mt-0.5 flex-shrink-0">
-                                  {isDone ? <CheckCircle2 className="w-5 h-5 text-lime-500" /> : <XCircle className="w-5 h-5 text-red-400" />}
+                                  <Icon className={`w-5 h-5 ${iconColor}`} />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 mb-1">
