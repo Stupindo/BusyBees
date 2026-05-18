@@ -13,6 +13,7 @@ import DashboardScreen from './components/DashboardScreen';
 import HiveReportScreen from './components/HiveReportScreen';
 import WalletScreen from './components/WalletScreen';
 import SettingsScreen from './components/SettingsScreen';
+import ManagePayoutsScreen from './components/ManagePayoutsScreen';
 
 const FamilyGuardedApp = () => {
   const { userMemberships, activeFamily, isLoadingFamilies } = useFamily();
@@ -45,6 +46,7 @@ const FamilyGuardedApp = () => {
         <Route path="settings/templates" element={<ChoreTemplatesScreen />} />
         <Route path="settings/templates/:templateId" element={<EditTemplateScreen />} />
         <Route path="settings/report" element={<HiveReportScreen />} />
+        <Route path="settings/payouts" element={<ManagePayoutsScreen />} />
       </Route>
     </Routes>
   );

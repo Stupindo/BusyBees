@@ -107,13 +107,22 @@ const SettingsScreen = () => {
             <span className="text-stone-400 group-hover:text-primary transition-colors">→</span>
           </li>
           {isAdmin && (
-            <li
-              onClick={() => navigate('/settings/report')}
-              className="p-5 flex items-center justify-between text-stone-700 font-semibold cursor-pointer hover:bg-stone-50 transition-colors group border-t border-stone-100"
-            >
-              <span>Hive Report</span>
-              <span className="text-stone-400 group-hover:text-primary transition-colors">→</span>
-            </li>
+            <>
+              <li
+                onClick={() => navigate('/settings/report')}
+                className="p-5 flex items-center justify-between text-stone-700 font-semibold cursor-pointer hover:bg-stone-50 transition-colors group border-t border-stone-100"
+              >
+                <span>Hive Report</span>
+                <span className="text-stone-400 group-hover:text-primary transition-colors">→</span>
+              </li>
+              <li
+                onClick={() => navigate('/settings/payouts')}
+                className="p-5 flex items-center justify-between text-stone-700 font-semibold cursor-pointer hover:bg-stone-50 transition-colors group border-t border-stone-100"
+              >
+                <span>Payout Requests</span>
+                <span className="text-stone-400 group-hover:text-primary transition-colors">→</span>
+              </li>
+            </>
           )}
         </ul>
       </div>
