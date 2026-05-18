@@ -1,3 +1,11 @@
+-- 1. Insert default settings for existing families
+INSERT INTO public.family_settings (family_id)
+SELECT id FROM public.families f
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.family_settings fs WHERE fs.family_id = f.id
+);
+
+-- 2. Update create_family function to insert default settings for new families
 CREATE OR REPLACE FUNCTION public.create_family(p_name TEXT)
 RETURNS BIGINT
 LANGUAGE plpgsql
