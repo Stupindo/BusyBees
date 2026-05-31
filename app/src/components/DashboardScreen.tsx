@@ -967,7 +967,7 @@ export default function DashboardScreen() {
           modal={noteModal}
           onClose={() => setNoteModal(null)}
           onConfirm={handleModalConfirm}
-          onRestorePending={handleRestorePending}
+          onRestorePending={isAdmin ? handleRestorePending : undefined}
           isSaving={isSavingNote}
         />
       )}

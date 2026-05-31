@@ -1,6 +1,31 @@
 import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+function getLocalWeekStart(date: Date, timeZone: string): string {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parseInt(parts.find(p => p.type === 'year')?.value || "0", 10);
+  const month = parseInt(parts.find(p => p.type === 'month')?.value || "0", 10);
+  const day = parseInt(parts.find(p => p.type === 'day')?.value || "0", 10);
+
+  const localDate = new Date(Date.UTC(year, month - 1, day));
+  const dayOfWeek = localDate.getUTCDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const diff = (dayOfWeek === 0 ? -6 : 1 - dayOfWeek);
+  
+  const mondayDate = new Date(localDate);
+  mondayDate.setUTCDate(localDate.getUTCDate() + diff);
+
+  const y = mondayDate.getUTCFullYear();
+  const m = String(mondayDate.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(mondayDate.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY") || "";
 
@@ -22,7 +47,16 @@ serve(async (req: Request) => {
     }
 
     // Parse request body
-    const { dry_run = false } = await req.json().catch(() => ({}));
+    let dry_run = false;
+    try {
+      const text = await req.text();
+      if (text) {
+        const body = JSON.parse(text);
+        dry_run = body.dry_run === true;
+      }
+    } catch (err) {
+      console.warn("Failed to parse request body as JSON:", err);
+    }
 
     if (!supabaseUrl || !supabaseServiceKey) {
       throw new Error("Missing Supabase environment variables");
@@ -81,53 +115,64 @@ serve(async (req: Request) => {
     }
 
     // 1.5. Filter out families that are already settled for this week
-    const weekStartUtc = new Date(nowUtc);
-    const day = weekStartUtc.getUTCDay(); // 0=Sun
-    const diff = (day === 0 ? -6 : 1 - day);
-    weekStartUtc.setUTCDate(weekStartUtc.getUTCDate() + diff);
-    const wsOptions: Intl.DateTimeFormatOptions = { timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' };
-    const wsParts = new Intl.DateTimeFormat('en-US', wsOptions).formatToParts(weekStartUtc);
-    const currentWeekStartStr = `${wsParts.find(p=>p.type==='year')?.value}-${wsParts.find(p=>p.type==='month')?.value}-${wsParts.find(p=>p.type==='day')?.value}`;
+    const dueFamiliesWithWeeks = dueFamilies.map((f) => {
+      const currentWeekStartStr = getLocalWeekStart(nowUtc, f.timezone || 'UTC');
+      
+      const currentWeekStart = new Date(currentWeekStartStr);
+      const nextWeekStartUtc = new Date(currentWeekStart);
+      nextWeekStartUtc.setUTCDate(nextWeekStartUtc.getUTCDate() + 7);
+      
+      const y = nextWeekStartUtc.getUTCFullYear();
+      const m = String(nextWeekStartUtc.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(nextWeekStartUtc.getUTCDate()).padStart(2, '0');
+      const nextWeekStartStr = `${y}-${m}-${d}`;
+      
+      return {
+        ...f,
+        currentWeekStartStr,
+        nextWeekStartStr
+      };
+    });
 
     const { data: settledFamilies, error: settledError } = await supabase
       .from("weekly_settlements")
-      .select("family_id")
-      .in("family_id", dueFamilyIds)
-      .eq("week_start_date", currentWeekStartStr);
+      .select("family_id, week_start_date")
+      .in("family_id", dueFamilyIds);
     
     if (settledError) throw settledError;
 
-    const settledIds = new Set(settledFamilies?.map(f => f.family_id) || []);
-    const familiesToProcess = dueFamilyIds.filter(id => !settledIds.has(id));
+    const settledSet = new Set(
+      settledFamilies?.map(s => `${s.family_id}:${s.week_start_date}`) || []
+    );
 
-    if (familiesToProcess.length === 0) {
+    const familiesConfigsToProcess = dueFamiliesWithWeeks.filter(
+      f => !settledSet.has(`${f.family_id}:${f.currentWeekStartStr}`)
+    );
+
+    if (familiesConfigsToProcess.length === 0) {
       return new Response(JSON.stringify({ message: "Families due for reset were already settled", dry_run }), {
         headers: { "Content-Type": "application/json" }
       });
     }
 
+    const familiesToProcess = familiesConfigsToProcess.map(f => f.family_id);
+
     // 2. Process each due family
     const { data: children, error: childrenError } = await supabase
       .from("members")
       .select("id, family_id")
-      .in("family_id", familiesToProcess)
-      .eq("role", "child");
+      .in("family_id", familiesToProcess);
 
     if (childrenError) throw childrenError;
-
-    // Use currentWeekStartStr as the week being closed, but if running exactly at Monday 00:00, 
-    // currentWeekStartStr might be the new week. To be safe, we'll use the week_start_date of their pending chores 
-    // or just rely on the existing currentWeekStartStr since it matches complete_week_early's CURRENT_DATE logic.
-    // For generating new chores, we use the week AFTER currentWeekStartStr.
-    const currentWeekStart = new Date(currentWeekStartStr);
-    const nextWeekStartUtc = new Date(currentWeekStart);
-    nextWeekStartUtc.setUTCDate(nextWeekStartUtc.getUTCDate() + 7);
-    const nwsParts = new Intl.DateTimeFormat('en-US', wsOptions).formatToParts(nextWeekStartUtc);
-    const nextWeekStartStr = `${nwsParts.find(p=>p.type==='year')?.value}-${nwsParts.find(p=>p.type==='month')?.value}-${nwsParts.find(p=>p.type==='day')?.value}`;
 
     const logs: any[] = [];
 
     for (const child of children || []) {
+      const familyConfig = familiesConfigsToProcess.find(f => f.family_id === child.family_id);
+      if (!familyConfig) continue;
+
+      const { currentWeekStartStr, nextWeekStartStr } = familyConfig;
+
       // Get template info
       const { data: template, error: templateError } = await supabase
         .from("weekly_templates")
@@ -195,12 +240,16 @@ serve(async (req: Request) => {
       if (!dry_run) {
         // 3. Update Ledger
         if (reward > 0) {
-          await supabase.from("transactions").insert({
+          const { error: txError } = await supabase.from("transactions").insert({
             member_id: child.id,
             amount: reward,
             type: "earning",
             description: "Weekly allowance harvest"
           });
+          if (txError) {
+             console.error("Error inserting transaction for member " + child.id + ":", txError);
+             throw txError;
+          }
         }
 
         // Mark old chore instances as 'failed' if they were pending
@@ -276,19 +325,10 @@ serve(async (req: Request) => {
 
     if (!dry_run) {
       // Mark all processed families as settled for this week
-      // Calculate current week start date
-      const weekStartUtc = new Date(nowUtc);
-      const day = weekStartUtc.getUTCDay(); // 0=Sun
-      const diff = (day === 0 ? -6 : 1 - day);
-      weekStartUtc.setUTCDate(weekStartUtc.getUTCDate() + diff);
-      const wsOptions: Intl.DateTimeFormatOptions = { timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' };
-      const wsPartsForInsert = new Intl.DateTimeFormat('en-US', wsOptions).formatToParts(weekStartUtc);
-      const insertWeekStartStr = `${wsPartsForInsert.find(p=>p.type==='year')?.value}-${wsPartsForInsert.find(p=>p.type==='month')?.value}-${wsPartsForInsert.find(p=>p.type==='day')?.value}`;
-      
-      for (const familyId of familiesToProcess) {
+      for (const f of familiesConfigsToProcess) {
          await supabase.from("weekly_settlements").insert({
-           family_id: familyId,
-           week_start_date: insertWeekStartStr,
+           family_id: f.family_id,
+           week_start_date: f.currentWeekStartStr,
            is_early: false
          });
       }

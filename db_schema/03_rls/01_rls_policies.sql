@@ -192,10 +192,47 @@ USING (
 -- 3.1 Trigger to restrict columns a child can modify on chore_instances
 CREATE OR REPLACE FUNCTION public.check_chore_instance_columns()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_role TEXT;
+  v_timezone TEXT;
+  v_local_date DATE;
 BEGIN
+  -- Fetch member role
+  SELECT role INTO v_role 
+  FROM public.members 
+  WHERE user_id = auth.uid() 
+  LIMIT 1;
+
   -- Check if user is a child
-  IF (SELECT role FROM public.members WHERE user_id = auth.uid() LIMIT 1) = 'child' THEN
-    -- They can only change status and notes. Everything else must remain identical.
+  IF v_role = 'child' THEN
+    -- If the system/payout is auto-failing the chore, bypass the restrictions
+    IF NEW.status = 'failed' THEN
+      RETURN NEW;
+    END IF;
+
+    -- 1. Block editing if the chore is already failed or cancelled
+    IF OLD.status = 'failed' OR OLD.status = 'cancelled' THEN
+      RAISE EXCEPTION 'Children cannot modify the status of failed or cancelled chores.';
+    END IF;
+
+    -- 2. Block editing if it is a daily chore in the past
+    IF OLD.instance_date IS NOT NULL THEN
+      -- Fetch timezone for the family
+      SELECT fs.timezone INTO v_timezone
+      FROM public.family_settings fs
+      JOIN public.members m ON m.family_id = fs.family_id
+      WHERE m.id = OLD.member_id
+      LIMIT 1;
+
+      -- Get local date in family's timezone
+      v_local_date := (timezone(COALESCE(v_timezone, 'UTC'), now()))::date;
+
+      IF OLD.instance_date < v_local_date THEN
+        RAISE EXCEPTION 'Children cannot modify daily chores from past days.';
+      END IF;
+    END IF;
+
+    -- 3. Check allowed column changes
     IF NEW.id IS DISTINCT FROM OLD.id 
        OR NEW.chore_id IS DISTINCT FROM OLD.chore_id 
        OR NEW.member_id IS DISTINCT FROM OLD.member_id 

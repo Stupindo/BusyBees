@@ -35,10 +35,34 @@ LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
-    v_week_start DATE;
+    v_timezone       TEXT;
+    v_local_date     DATE;
+    v_week_start     DATE;
 BEGIN
+    -- Fetch timezone for the family
+    SELECT fs.timezone INTO v_timezone
+    FROM public.family_settings fs
+    JOIN public.members m ON m.family_id = fs.family_id
+    WHERE m.id = p_member_id
+    LIMIT 1;
+
+    -- Get local date in family's timezone
+    v_local_date := (timezone(COALESCE(v_timezone, 'UTC'), now()))::date;
+
     -- ISO week starts on Monday
-    v_week_start := date_trunc('week', CURRENT_DATE)::DATE;
+    v_week_start := date_trunc('week', v_local_date)::DATE;
+
+    -- Auto-fail any daily chores for this member that are in the past and still pending
+    UPDATE public.chore_instances ci
+    SET status = 'failed',
+        notes = COALESCE(ci.notes || E'\n', '') || '[System] Daily chore was not completed on its day.'
+    FROM public.chores c
+    WHERE ci.chore_id = c.id
+      AND ci.member_id = p_member_id
+      AND ci.week_start_date = v_week_start
+      AND ci.status = 'pending'
+      AND ci.instance_date IS NOT NULL
+      AND ci.instance_date < v_local_date;
 
     RETURN QUERY
     SELECT
@@ -67,7 +91,7 @@ BEGIN
       -- Daily chores: only today's instance
       AND (
           c.frequency = 'weekly'
-          OR (c.frequency = 'daily' AND ci.instance_date = CURRENT_DATE)
+          OR (c.frequency = 'daily' AND ci.instance_date = v_local_date)
       )
     ORDER BY
         CASE ci.status

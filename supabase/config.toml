@@ -1,0 +1,2 @@
+[functions.weekly-hive-reset]
+verify_jwt = false
