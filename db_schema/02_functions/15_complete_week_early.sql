@@ -21,13 +21,7 @@ AS $$
 DECLARE
     v_admin_count INT;
     v_week_start DATE;
-    v_child RECORD;
-    v_template RECORD;
-    v_penalty_sum INT;
-    v_bonus_reward INT;
-    v_reward INT;
-    v_inserted_tx INT := 0;
-    v_updated_chores INT := 0;
+    v_result JSON;
 BEGIN
     -- Verify caller is admin of this family
     SELECT COUNT(*) INTO v_admin_count
@@ -40,83 +34,12 @@ BEGIN
         RETURN json_build_object('success', false, 'error', 'Unauthorized');
     END IF;
 
+    -- Calculate current Monday start date in database timezone (UTC)
     v_week_start := date_trunc('week', CURRENT_DATE)::DATE;
 
-    -- Check if already processed
-    IF EXISTS (
-        SELECT 1 FROM public.weekly_settlements
-        WHERE family_id = p_family_id AND week_start_date = v_week_start
-    ) THEN
-        RETURN json_build_object('success', false, 'error', 'Week already processed');
-    END IF;
+    -- Call the unified, transactional weekly settlement core logic
+    SELECT public.process_weekly_settlement(p_family_id, v_week_start, true) INTO v_result;
 
-    -- Loop over all members in the family who have a weekly template
-    FOR v_child IN
-        SELECT m.id
-        FROM public.members m
-        JOIN public.weekly_templates wt ON wt.member_id = m.id
-        WHERE m.family_id = p_family_id
-    LOOP
-        -- Get template (COALESCE treats NULL reward/penalty as 0)
-        SELECT id,
-               COALESCE(total_reward, 0)     AS total_reward,
-               COALESCE(penalty_per_task, 0) AS penalty_per_task
-        INTO v_template
-        FROM public.weekly_templates
-        WHERE member_id = v_child.id;
-
-        IF FOUND THEN
-            -- Sum effective penalties for still-pending mandatory chores this week.
-            -- Per-chore override wins; falls back to the template global.
-            SELECT COALESCE(SUM(
-                COALESCE(c.penalty_per_task, v_template.penalty_per_task)
-            ), 0) INTO v_penalty_sum
-            FROM public.chore_instances ci
-            JOIN public.chores c ON ci.chore_id = c.id
-            WHERE ci.member_id = v_child.id
-              AND ci.week_start_date = v_week_start
-              AND ci.status = 'pending'
-              AND c.is_backlog = false;
-
-            -- Reward calculation (mandatory chores base reward minus total penalty)
-            v_reward := GREATEST(0, v_template.total_reward - v_penalty_sum);
-
-            -- Add extra_reward for each completed backlog (bonus) chore this week
-            SELECT COALESCE(SUM(c.extra_reward), 0) INTO v_bonus_reward
-            FROM public.chore_instances ci
-            JOIN public.chores c ON ci.chore_id = c.id
-            WHERE ci.member_id = v_child.id
-              AND ci.week_start_date = v_week_start
-              AND ci.status = 'done'
-              AND c.is_backlog = true;
-
-            v_reward := v_reward + v_bonus_reward;
-
-            -- Insert transaction if reward > 0
-            IF v_reward > 0 THEN
-                INSERT INTO public.transactions (member_id, amount, type, description)
-                VALUES (v_child.id, v_reward, 'earning', '[Early] Weekly allowance harvest');
-                v_inserted_tx := v_inserted_tx + 1;
-            END IF;
-
-            -- Mark pending chores as failed with a hidden note
-            UPDATE public.chore_instances ci
-            SET status = 'failed',
-                notes = COALESCE(ci.notes || E'\n', '') || '[System] Week completed early'
-            FROM public.chores c
-            WHERE ci.chore_id = c.id
-              AND ci.member_id = v_child.id
-              AND ci.week_start_date = v_week_start
-              AND ci.status = 'pending';
-            
-            v_updated_chores := v_updated_chores + 1;
-        END IF;
-    END LOOP;
-
-    -- Mark week as processed
-    INSERT INTO public.weekly_settlements (family_id, week_start_date, is_early)
-    VALUES (p_family_id, v_week_start, true);
-
-    RETURN json_build_object('success', true, 'transactions_inserted', v_inserted_tx, 'members_updated', v_updated_chores);
+    RETURN v_result;
 END;
 $$;

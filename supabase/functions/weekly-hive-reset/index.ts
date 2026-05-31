@@ -155,182 +155,38 @@ serve(async (req: Request) => {
       });
     }
 
-    const familiesToProcess = familiesConfigsToProcess.map(f => f.family_id);
-
-    // 2. Process each due family
-    const { data: children, error: childrenError } = await supabase
-      .from("members")
-      .select("id, family_id")
-      .in("family_id", familiesToProcess);
-
-    if (childrenError) throw childrenError;
-
     const logs: any[] = [];
 
-    for (const child of children || []) {
-      const familyConfig = familiesConfigsToProcess.find(f => f.family_id === child.family_id);
-      if (!familyConfig) continue;
-
-      const { currentWeekStartStr, nextWeekStartStr } = familyConfig;
-
-      // Get template info
-      const { data: template, error: templateError } = await supabase
-        .from("weekly_templates")
-        .select("id, total_reward, penalty_per_task")
-        .eq("member_id", child.id)
-        .single();
-      
-      if (templateError || !template) continue;
-
-      // Fetch all chore_instances for this member for the current week or that are still pending
-      const { data: instances, error: instancesError } = await supabase
-        .from("chore_instances")
-        .select(`
-          id,
-          status,
-          chore_id,
-          week_start_date,
-          chores (
-            id,
-            is_backlog,
-            extra_reward,
-            penalty_per_task
-          )
-        `)
-        .eq("member_id", child.id)
-        .in("status", ["pending", "done"]);
-
-      if (instancesError) throw instancesError;
-
-      const defaultPenalty = template.penalty_per_task || 0;
-      let penaltySum = 0;
-      let unfinishedCount = 0;
-      let bonusReward = 0;
-      const pendingIdsToFail: number[] = [];
-
-      for (const instance of instances || []) {
-        const chore = instance.chores as any;
-        if (!chore) continue;
-
-        if (instance.status === "pending") {
-          pendingIdsToFail.push(instance.id);
-          // Only penalize non-backlog chores
-          if (!chore.is_backlog) {
-            unfinishedCount++;
-            const chorePenalty = chore.penalty_per_task !== null && chore.penalty_per_task !== undefined
-              ? chore.penalty_per_task
-              : defaultPenalty;
-            penaltySum += chorePenalty;
-          }
-        } else if (instance.status === "done" && chore.is_backlog) {
-          // Only count bonus for backlog chores completed THIS week
-          // (We check week_start_date to avoid counting past weeks if they somehow stayed in the list)
-          if (instance.week_start_date === currentWeekStartStr) {
-             bonusReward += (chore.extra_reward || 0);
-          }
-        }
-      }
-
-      const totalReward = template.total_reward || 0;
-
-      const reward = Math.max(0, totalReward - penaltySum) + bonusReward;
-      
-      logs.push({ child_id: child.id, unfinishedCount, penaltySum, bonusReward, reward });
-
+    for (const f of familiesConfigsToProcess) {
       if (!dry_run) {
-        // 3. Update Ledger
-        if (reward > 0) {
-          const { error: txError } = await supabase.from("transactions").insert({
-            member_id: child.id,
-            amount: reward,
-            type: "earning",
-            description: "Weekly allowance harvest"
-          });
-          if (txError) {
-             console.error("Error inserting transaction for member " + child.id + ":", txError);
-             throw txError;
+        // Execute unified transactional database settlement RPC
+        const { data: result, error: settlementError } = await supabase.rpc(
+          "process_weekly_settlement",
+          {
+            p_family_id: f.family_id,
+            p_week_start: f.currentWeekStartStr,
+            p_is_early: false
           }
+        );
+
+        if (settlementError) {
+          console.error(`Error settling family ${f.family_id}:`, settlementError.message);
+          throw new Error(`Database error during settlement: ${settlementError.message}`);
         }
 
-        // Mark old chore instances as 'failed' if they were pending
-        if (pendingIdsToFail.length > 0) {
-           await supabase
-             .from("chore_instances")
-             .update({ status: "failed" })
-             .in("id", pendingIdsToFail);
-        }
-
-        // 4. New Week: Generate fresh chore instances based on weekly_templates
-        const weekStartDateStr = nextWeekStartStr;
-
-        const { data: templateChores, error: tChoresError } = await supabase
-           .from("chores")
-           .select("id, is_backlog, frequency, recurrence_days")
-           .eq("template_id", template.id)
-           .eq("is_deleted", false); // Skip deleted
-
-        if (!tChoresError && templateChores) {
-           // --- Weekly chores: one instance per week (instance_date = NULL) ---
-           const weeklyInstances = templateChores
-             .filter((tc: any) => tc.frequency !== 'daily')
-             .map((tc: any) => ({
-               chore_id: tc.id,
-               member_id: child.id,
-               status: "pending",
-               week_start_date: weekStartDateStr,
-               instance_date: null,
-             }));
-
-           if (weeklyInstances.length > 0) {
-             await supabase.from("chore_instances").insert(weeklyInstances);
-           }
-
-           // --- Daily chores: one instance per applicable day of the new week ---
-           const dailyChores = templateChores.filter((tc: any) => tc.frequency === 'daily');
-           if (dailyChores.length > 0) {
-             const dailyInstances: any[] = [];
-             // Generate series for the 7 days of the new week
-             for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
-               const dayDate = new Date(weekStartDateStr);
-               dayDate.setUTCDate(dayDate.getUTCDate() + dayOffset);
-               // ISO day-of-week: 1=Mon … 7=Sun
-               const isoDay = dayDate.getUTCDay() === 0 ? 7 : dayDate.getUTCDay();
-               const dayParts = new Intl.DateTimeFormat('en-US', {
-                 timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit'
-               }).formatToParts(dayDate);
-               const dayStr = `${dayParts.find(p => p.type === 'year')?.value}-${dayParts.find(p => p.type === 'month')?.value}-${dayParts.find(p => p.type === 'day')?.value}`;
-
-               for (const dc of dailyChores) {
-                 const days: number[] | null = dc.recurrence_days;
-                 // Applicable if recurrence_days is null (all days) or this day is in the array
-                 if (days === null || days.includes(isoDay)) {
-                   dailyInstances.push({
-                     chore_id: dc.id,
-                     member_id: child.id,
-                     status: "pending",
-                     week_start_date: weekStartDateStr,
-                     instance_date: dayStr,
-                   });
-                 }
-               }
-             }
-
-             if (dailyInstances.length > 0) {
-               await supabase.from("chore_instances").insert(dailyInstances);
-             }
-           }
-        }
-      }
-    }
-
-    if (!dry_run) {
-      // Mark all processed families as settled for this week
-      for (const f of familiesConfigsToProcess) {
-         await supabase.from("weekly_settlements").insert({
-           family_id: f.family_id,
-           week_start_date: f.currentWeekStartStr,
-           is_early: false
-         });
+        logs.push({
+          family_id: f.family_id,
+          week_start: f.currentWeekStartStr,
+          success: true,
+          result
+        });
+      } else {
+        logs.push({
+          family_id: f.family_id,
+          week_start: f.currentWeekStartStr,
+          dry_run: true,
+          message: "Dry run: would settle family and generate chores"
+        });
       }
     }
 
