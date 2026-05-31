@@ -1,18 +1,5 @@
--- process_weekly_settlement: Core business logic for weekly reset and allowance harvest.
--- Runs atomically within a single SQL transaction.
---
--- Logic:
---   a) Guards against double-settlement.
---   b) Loops through each member with an active weekly template.
---   c) Calculates allowance (total_reward - SUM of penalties for unfinished mandatory chores)
---      plus extra rewards for completed backlog chores.
---   d) Records a '[Early] Weekly allowance harvest' or 'Weekly allowance harvest' transaction.
---   e) Marks pending chores of the completed week as 'failed'.
---   f) Generates a fresh set of weekly and daily chores for the upcoming week.
---   g) Records a weekly_settlements entry.
---
--- Returns JSON: { "success": true, "transactions_inserted": N, "members_updated": N, "next_week_start": DATE }
--- Callable via: supabase.rpc('process_weekly_settlement', { p_family_id: X, p_week_start: 'YYYY-MM-DD', p_is_early: BOOLEAN })
+-- Migration: Fix weekly reset penalty calculation to count both 'pending' and 'failed' chore instances.
+-- Past missed chores are auto-failed dynamically, so they have 'failed' status and must incur penalties.
 
 CREATE OR REPLACE FUNCTION public.process_weekly_settlement(
     p_family_id   BIGINT,
