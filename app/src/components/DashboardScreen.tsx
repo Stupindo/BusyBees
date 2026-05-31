@@ -52,6 +52,12 @@ function formatDate(date: Date): string {
   });
 }
 
+function formatChoreDate(dateStr: string): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
 function getMondayOfCurrentWeek(): Date {
   const today = new Date();
   const day = today.getDay(); // 0=Sun … 6=Sat
@@ -183,6 +189,11 @@ function ChoreCard({ instance, onMarkDone, onMarkCancelled, onViewNote }: ChoreC
             )
           )}
         </div>
+        {instance.instance_date && (
+          <p className="text-[10px] text-teal-600 font-black uppercase tracking-wider mb-1 mt-1 flex items-center gap-1">
+            📅 {formatChoreDate(instance.instance_date)}
+          </p>
+        )}
         {instance.description && (
           <p className="text-xs text-stone-400 font-medium leading-relaxed">
             {instance.description}
@@ -558,15 +569,21 @@ export default function DashboardScreen() {
     setIsLoading(true);
     setError('');
 
-    const { data, error: rpcErr } = await supabase.rpc('get_today_chores', {
-      p_member_id: activeMember.id,
-    });
+    const [todayRes, historyRes] = await Promise.all([
+      supabase.rpc('get_today_chores', { p_member_id: activeMember.id }),
+      supabase.rpc('get_chores_history', { p_member_id: activeMember.id })
+    ]);
 
-    if (rpcErr) {
+    if (todayRes.error || historyRes.error) {
       setError('Failed to load today\'s chores.');
-      console.error(rpcErr);
+      console.error('get_today_chores error:', todayRes.error);
+      console.error('get_chores_history error:', historyRes.error);
     } else {
-      setChores((data || []) as ChoreInstance[]);
+      const combined = [
+        ...(todayRes.data || []),
+        ...(historyRes.data || [])
+      ];
+      setChores(combined as ChoreInstance[]);
     }
 
     setIsLoading(false);
