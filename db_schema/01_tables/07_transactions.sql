@@ -4,5 +4,6 @@ CREATE TABLE public.transactions (
     amount INT NOT NULL,
     type TEXT CHECK (type IN ('earning', 'penalty', 'payout')),
     description TEXT,
+    metadata JSONB DEFAULT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );

@@ -33,6 +33,8 @@ DECLARE
     v_updated_chores INT := 0;
     v_next_week_start DATE;
     v_day DATE;
+    v_unfinished_count INT;
+    v_completed_backlog_count INT;
 BEGIN
     -- 1. Prevent double payout / double settlement for the same week
     IF EXISTS (
@@ -63,9 +65,10 @@ BEGIN
         IF FOUND THEN
             -- Sum effective penalties for pending mandatory chores this week.
             -- Per-chore override wins; falls back to the template global.
-            SELECT COALESCE(SUM(
-                COALESCE(c.penalty_per_task, v_template.penalty_per_task)
-            ), 0) INTO v_penalty_sum
+            SELECT 
+                COUNT(*),
+                COALESCE(SUM(COALESCE(c.penalty_per_task, v_template.penalty_per_task)), 0)
+            INTO v_unfinished_count, v_penalty_sum
             FROM public.chore_instances ci
             JOIN public.chores c ON ci.chore_id = c.id
             WHERE ci.member_id = v_child.id
@@ -74,7 +77,10 @@ BEGIN
               AND c.is_backlog = false;
 
             -- Sum bonus rewards for completed backlog chores this week
-            SELECT COALESCE(SUM(c.extra_reward), 0) INTO v_bonus_reward
+            SELECT 
+                COUNT(*),
+                COALESCE(SUM(c.extra_reward), 0)
+            INTO v_completed_backlog_count, v_bonus_reward
             FROM public.chore_instances ci
             JOIN public.chores c ON ci.chore_id = c.id
             WHERE ci.member_id = v_child.id
@@ -87,12 +93,20 @@ BEGIN
 
             -- 3. Record payout in transaction ledger
             IF v_reward > 0 THEN
-                INSERT INTO public.transactions (member_id, amount, type, description)
+                INSERT INTO public.transactions (member_id, amount, type, description, metadata)
                 VALUES (
                     v_child.id, 
                     v_reward, 
                     'earning', 
-                    CASE WHEN p_is_early THEN '[Early] Weekly allowance harvest' ELSE 'Weekly allowance harvest' END
+                    CASE WHEN p_is_early THEN '[Early] Weekly allowance harvest' ELSE 'Weekly allowance harvest' END,
+                    jsonb_build_object(
+                        'week_start_date', p_week_start,
+                        'base_allowance', v_template.total_reward,
+                        'penalty_sum', v_penalty_sum,
+                        'unfinished_mandatory_count', v_unfinished_count,
+                        'bonus_reward', v_bonus_reward,
+                        'completed_backlog_count', v_completed_backlog_count
+                    )
                 );
                 v_inserted_tx := v_inserted_tx + 1;
             END IF;

@@ -2,12 +2,22 @@ import { useState, useEffect } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { supabase } from '../lib/supabase';
 
+interface TransactionMetadata {
+  week_start_date: string;
+  base_allowance: number;
+  penalty_sum: number;
+  unfinished_mandatory_count: number;
+  bonus_reward: number;
+  completed_backlog_count: number;
+}
+
 interface Transaction {
   id: number;
   amount: number;
   type: 'earning' | 'penalty' | 'payout';
   description: string;
   created_at: string;
+  metadata?: TransactionMetadata | null;
 }
 
 const WalletScreen = () => {
@@ -20,6 +30,7 @@ const WalletScreen = () => {
   const [isRedeemModalOpen, setIsRedeemModalOpen] = useState(false);
   const [redeemGems, setRedeemGems] = useState<number>(0);
   const [isRedeeming, setIsRedeeming] = useState(false);
+  const [expandedTxId, setExpandedTxId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!activeMember?.id) return;
@@ -43,7 +54,7 @@ const WalletScreen = () => {
   const fetchTransactions = () => {
     supabase
       .from('transactions')
-      .select('id, amount, type, description, created_at')
+      .select('id, amount, type, description, metadata, created_at')
       .eq('member_id', activeMember?.id)
       .order('created_at', { ascending: false })
       .then(({ data }) => {
@@ -146,15 +157,73 @@ const WalletScreen = () => {
           <div className="bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden">
             <ul className="divide-y divide-stone-50">
               {transactions.map(t => (
-                <li key={t.id} className="px-5 py-4 flex items-center gap-3">
-                  <span className="text-xl flex-shrink-0">{typeIcon(t.type)}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-secondary truncate">{t.description}</p>
-                    <p className="text-xs text-stone-400 font-medium">{formatDate(t.created_at)}</p>
+                <li 
+                  key={t.id} 
+                  className={`px-5 py-4 flex flex-col gap-2 ${t.metadata ? 'cursor-pointer hover:bg-stone-50/50 transition-colors' : ''}`}
+                  onClick={() => {
+                    if (t.metadata) {
+                      setExpandedTxId(expandedTxId === t.id ? null : t.id);
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-3 w-full">
+                    <span className="text-xl flex-shrink-0">{typeIcon(t.type)}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-semibold text-secondary truncate">{t.description}</p>
+                        {t.metadata && (
+                          <span className="text-[10px] bg-stone-100 text-stone-500 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex-shrink-0">
+                            {expandedTxId === t.id ? 'Hide Details' : 'Details'}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-stone-400 font-medium">{formatDate(t.created_at)}</p>
+                    </div>
+                    <span className={`text-sm font-black flex-shrink-0 ${typeColor(t.type)}`}>
+                      {t.type === 'earning' ? '+' : '-'}{t.amount}
+                    </span>
                   </div>
-                  <span className={`text-sm font-black flex-shrink-0 ${typeColor(t.type)}`}>
-                    {t.type === 'earning' ? '+' : '-'}{t.amount}
-                  </span>
+                  
+                  {/* Expanded Details */}
+                  {expandedTxId === t.id && t.metadata && (
+                    <div 
+                      className="mt-1 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs space-y-2.5 animate-fadeIn"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <p className="font-bold text-stone-400 uppercase tracking-wider text-[10px] mb-1.5 flex items-center gap-1">
+                        📊 Earning Breakdown
+                      </p>
+                      
+                      <div className="flex justify-between items-center text-stone-600 font-medium">
+                        <span>📅 Week Start Date</span>
+                        <span className="font-bold text-secondary">{formatDate(t.metadata.week_start_date)}</span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center text-stone-600 font-medium">
+                        <span>💰 Base Weekly Allowance</span>
+                        <span className="font-bold text-lime-600">+{t.metadata.base_allowance} 💎</span>
+                      </div>
+                      
+                      {t.metadata.unfinished_mandatory_count > 0 && (
+                        <div className="flex justify-between items-center text-stone-600 font-medium">
+                          <span>⚠️ Unfinished Chores Penalty ({t.metadata.unfinished_mandatory_count} chores)</span>
+                          <span className="font-bold text-red-500">-{t.metadata.penalty_sum} 💎</span>
+                        </div>
+                      )}
+                      
+                      {t.metadata.completed_backlog_count > 0 && (
+                        <div className="flex justify-between items-center text-stone-600 font-medium">
+                          <span>🌟 Backlog Chores Bonus ({t.metadata.completed_backlog_count} chores)</span>
+                          <span className="font-bold text-lime-600">+{t.metadata.bonus_reward} 💎</span>
+                        </div>
+                      )}
+                      
+                      <div className="border-t border-stone-200/60 pt-2.5 flex justify-between items-center font-extrabold text-sm text-secondary">
+                        <span>Total Granted</span>
+                        <span className="text-lime-600 font-black">{t.amount} 💎</span>
+                      </div>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
