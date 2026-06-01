@@ -7,3 +7,5 @@ CREATE TABLE public.transactions (
     metadata JSONB DEFAULT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX idx_transactions_member_id ON public.transactions(member_id);
