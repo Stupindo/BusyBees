@@ -64,19 +64,21 @@ export default function ManageMembersScreen() {
     if (!editingMember) return;
     
     setIsSaving(true);
-    const { error: updateError } = await supabase
-      .from('members')
-      .update({
-        custom_name: editName.trim() || null,
-        avatar: editAvatar || null,
-        role: editRole,
-        is_admin: editIsAdmin,
-      })
-      .eq('id', editingMember.id);
+    const { data: rpcData, error: rpcError } = await supabase
+      .rpc('update_member_profile', {
+        p_member_id: editingMember.id,
+        p_custom_name: editName.trim() || null,
+        p_avatar: editAvatar || null,
+        p_role: editRole,
+        p_is_admin: editIsAdmin,
+      });
+      
+    const rpcResult = rpcData as { success?: boolean; error?: string } | null;
+    const updateError = rpcError || (rpcResult?.error ? new Error(rpcResult.error) : null);
       
     if (updateError) {
       console.error(updateError);
-      alert('Failed to update member.');
+      alert(updateError.message || 'Failed to update member.');
     } else {
       // Update local state to reflect changes without reloading immediately
       setMembers(prev => prev.map(m => m.id === editingMember.id ? {
