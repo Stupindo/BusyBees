@@ -9,9 +9,12 @@ vi.mock('../contexts/FamilyContext', () => ({
   useFamily: vi.fn(),
 }));
 
+const mockRpc = vi.fn().mockResolvedValue({ data: null, error: null });
+
 vi.mock('../lib/supabase', () => ({
   supabase: {
     from: vi.fn(),
+    rpc: (...args: any[]) => mockRpc(...args),
   },
 }));
 
@@ -385,6 +388,151 @@ describe('EditTemplateScreen', () => {
       expect(mockInsert).toHaveBeenCalledWith(
         expect.objectContaining({ frequency: 'daily', recurrence_days: null })
       );
+    });
+  });
+
+  it('shows Add to Current Week toggle and handles checking/unchecking', async () => {
+    mockRpc.mockResolvedValue({ data: { inserted: 1, cancelled: 0 }, error: null });
+    const mockSingle = vi.fn().mockResolvedValue({
+      data: { id: 99, title: 'Mop the floor', template_id: 1, is_backlog: false, extra_reward: 0, description: null },
+      error: null,
+    });
+    const mockSelect = vi.fn().mockReturnValue({ single: mockSingle });
+    const mockInsert = vi.fn().mockReturnValue({ select: mockSelect });
+
+    (supabase.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
+      if (table === 'weekly_templates') {
+        return {
+          select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: MOCK_TEMPLATE, error: null }) }) }),
+        };
+      }
+      if (table === 'chores') {
+        return {
+          select: () => ({ eq: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }) }),
+          insert: mockInsert,
+        };
+      }
+      return {};
+    });
+
+    renderScreen();
+
+    await waitFor(() => screen.getByText('Add Chore'));
+    fireEvent.click(screen.getByText('Add Chore'));
+
+    // Check that toggle exists and is checked by default
+    const toggle = document.getElementById('chore-add-to-current-week-toggle') as HTMLInputElement;
+    expect(toggle).toBeInTheDocument();
+    expect(toggle.checked).toBe(true);
+
+    // Uncheck it
+    fireEvent.click(toggle);
+    expect(toggle.checked).toBe(false);
+
+    // Recheck it
+    fireEvent.click(toggle);
+    expect(toggle.checked).toBe(true);
+  });
+
+  it('submits add chore form and triggers RPC when Add to Current Week is checked', async () => {
+    mockRpc.mockClear();
+    mockRpc.mockResolvedValue({ data: { inserted: 1, cancelled: 0 }, error: null });
+    const mockSingle = vi.fn().mockResolvedValue({
+      data: { id: 99, title: 'Mop the floor', template_id: 1, is_backlog: false, extra_reward: 0, description: null },
+      error: null,
+    });
+    const mockSelect = vi.fn().mockReturnValue({ single: mockSingle });
+    const mockInsert = vi.fn().mockReturnValue({ select: mockSelect });
+
+    (supabase.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
+      if (table === 'weekly_templates') {
+        return {
+          select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: MOCK_TEMPLATE, error: null }) }) }),
+        };
+      }
+      if (table === 'chores') {
+        return {
+          select: () => ({ eq: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }) }),
+          insert: mockInsert,
+        };
+      }
+      return {};
+    });
+
+    renderScreen();
+
+    await waitFor(() => screen.getByText('Add Chore'));
+    fireEvent.click(screen.getByText('Add Chore'));
+
+    // Fill in title
+    fireEvent.change(screen.getByLabelText(/Chore Title/i), { target: { value: 'Mop the floor' } });
+
+    // Submit (Add to Current Week is true by default)
+    fireEvent.click(document.getElementById('save-chore-btn')!);
+
+    await waitFor(() => {
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.not.objectContaining({ created_at: expect.any(String) })
+      );
+      expect(mockRpc).toHaveBeenCalledWith('generate_week_chores', {
+        p_family_id: MOCK_TEMPLATE.family_id,
+        p_member_id: MOCK_TEMPLATE.member_id,
+      });
+    });
+  });
+
+  it('submits add chore form with next Monday created_at and does not trigger RPC when Add to Current Week is unchecked', async () => {
+    mockRpc.mockClear();
+    mockRpc.mockResolvedValue({ data: { inserted: 0, cancelled: 0 }, error: null });
+    const mockSingle = vi.fn().mockResolvedValue({
+      data: { id: 99, title: 'Mop the floor', template_id: 1, is_backlog: false, extra_reward: 0, description: null },
+      error: null,
+    });
+    const mockSelect = vi.fn().mockReturnValue({ single: mockSingle });
+    const mockInsert = vi.fn().mockReturnValue({ select: mockSelect });
+
+    (supabase.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
+      if (table === 'weekly_templates') {
+        return {
+          select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: MOCK_TEMPLATE, error: null }) }) }),
+        };
+      }
+      if (table === 'chores') {
+        return {
+          select: () => ({ eq: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }) }),
+          insert: mockInsert,
+        };
+      }
+      return {};
+    });
+
+    renderScreen();
+
+    await waitFor(() => screen.getByText('Add Chore'));
+    fireEvent.click(screen.getByText('Add Chore'));
+
+    // Fill in title
+    fireEvent.change(screen.getByLabelText(/Chore Title/i), { target: { value: 'Mop the floor' } });
+
+    // Uncheck "Add to Current Week"
+    fireEvent.click(document.getElementById('chore-add-to-current-week-toggle')!);
+
+    // Submit
+    fireEvent.click(document.getElementById('save-chore-btn')!);
+
+    // Calculate expected next Monday
+    const d = new Date();
+    const day = d.getDay();
+    const diff = (day === 0 ? 1 : 8 - day);
+    const nextMon = new Date(d);
+    nextMon.setDate(d.getDate() + diff);
+    const expectedMonday = `${nextMon.getFullYear()}-${String(nextMon.getMonth() + 1).padStart(2, '0')}-${String(nextMon.getDate()).padStart(2, '0')}`;
+
+    await waitFor(() => {
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({ created_at: expectedMonday })
+      );
+      expect(mockRpc).not.toHaveBeenCalled();
     });
   });
 });

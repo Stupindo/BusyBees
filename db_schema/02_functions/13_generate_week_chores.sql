@@ -59,6 +59,10 @@ BEGIN
           AND is_deleted  = false
           AND frequency   = 'weekly'
           AND is_backlog  = false
+          -- Only generate weekly instance if the chore template was created during or before this week.
+          -- Weekly chores added with 'Add to Current Week' (created_at = today) will be <= Sunday of this week,
+          -- while those deferred (created_at = next Monday) will not.
+          AND created_at <= v_week_start + 6
     ),
     existing_weekly AS (
         SELECT chore_id
@@ -112,6 +116,9 @@ BEGIN
               AND is_deleted    = false
               AND frequency     = 'daily'
               AND is_backlog    = false
+              -- Only generate instances for days on or after the chore template creation date.
+              -- Ensures that daily chores added mid-week only generate instances from that day forward.
+              AND v_day        >= created_at
               -- Applicable if recurrence_days is NULL (all days) or this day's ISO DOW is in the array
               AND (recurrence_days IS NULL
                    OR EXTRACT(ISODOW FROM v_day)::INT = ANY(recurrence_days))

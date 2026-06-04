@@ -134,6 +134,7 @@ const dailyChore = {
 function mockNoChores() {
   mockRpc.mockImplementation((fn: string) => {
     if (fn === 'get_today_chores') return Promise.resolve({ data: [], error: null });
+    if (fn === 'get_chores_history') return Promise.resolve({ data: [], error: null });
     if (fn === 'get_family_templates') return Promise.resolve({ data: [], error: null });
     return Promise.resolve({ data: { inserted: 0, cancelled: 0 }, error: null });
   });
@@ -145,6 +146,7 @@ function mockNoChores() {
 function mockWithChores(chores: any[]) {
   mockRpc.mockImplementation((fn: string) => {
     if (fn === 'get_today_chores') return Promise.resolve({ data: chores, error: null });
+    if (fn === 'get_chores_history') return Promise.resolve({ data: [], error: null });
     if (fn === 'get_family_templates') return Promise.resolve({ data: [{ member_id: 1, total_reward: 50, penalty_per_task: 5 }], error: null });
     return Promise.resolve({ data: { inserted: 2, cancelled: 0 }, error: null });
   });
@@ -202,6 +204,7 @@ describe('DashboardScreen', () => {
     // Need a template to exist for the button to appear
     mockRpc.mockImplementation((fn: string) => {
       if (fn === 'get_today_chores') return Promise.resolve({ data: [], error: null });
+      if (fn === 'get_chores_history') return Promise.resolve({ data: [], error: null });
       if (fn === 'get_family_templates') return Promise.resolve({ data: [{ member_id: 1, total_reward: 50, penalty_per_task: 5 }], error: null });
       return Promise.resolve({ data: { inserted: 0, cancelled: 0 }, error: null });
     });
@@ -307,6 +310,7 @@ describe('DashboardScreen', () => {
     const updateMock = vi.fn().mockReturnValue({ eq: () => Promise.resolve({ error: null }) });
     mockRpc.mockImplementation((fn: string) => {
       if (fn === 'get_today_chores') return Promise.resolve({ data: [cancelledChore], error: null });
+      if (fn === 'get_chores_history') return Promise.resolve({ data: [], error: null });
       if (fn === 'get_family_templates') return Promise.resolve({ data: [{ member_id: 1, total_reward: 50, penalty_per_task: 5 }], error: null });
       return Promise.resolve({ data: { inserted: 0, cancelled: 0 }, error: null });
     });
@@ -345,6 +349,7 @@ describe('DashboardScreen', () => {
     const updateMock = vi.fn().mockReturnValue({ eq: () => Promise.resolve({ error: null }) });
     mockRpc.mockImplementation((fn: string) => {
       if (fn === 'get_today_chores') return Promise.resolve({ data: [pendingChore], error: null });
+      if (fn === 'get_chores_history') return Promise.resolve({ data: [], error: null });
       if (fn === 'get_family_templates') return Promise.resolve({ data: [{ member_id: 1, total_reward: 50, penalty_per_task: 5 }], error: null });
       return Promise.resolve({ data: { inserted: 0, cancelled: 0 }, error: null });
     });
@@ -410,6 +415,7 @@ describe('DashboardScreen', () => {
   it('shows error message on RPC failure', async () => {
     mockRpc.mockImplementation((fn: string) => {
       if (fn === 'get_today_chores') return Promise.resolve({ data: null, error: { message: 'DB error' } });
+      if (fn === 'get_chores_history') return Promise.resolve({ data: [], error: null });
       return Promise.resolve({ data: null, error: null });
     });
     mockFrom.mockReturnValue({

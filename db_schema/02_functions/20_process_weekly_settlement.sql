@@ -133,7 +133,9 @@ BEGIN
             WHERE c.template_id = v_template.id
               AND c.is_deleted = false
               AND c.frequency = 'weekly'
-              AND c.is_backlog = false;
+              AND c.is_backlog = false
+              -- Only generate weekly chore if the chore template was created during or before the target week.
+              AND c.created_at <= v_next_week_start + 6;
 
             -- B) Insert daily chores (one instance per applicable day of the new week)
             FOR v_day IN
@@ -147,6 +149,8 @@ BEGIN
                   AND c.is_deleted = false
                   AND c.frequency = 'daily'
                   AND c.is_backlog = false
+                  -- Only generate instances for days on or after the chore template creation date.
+                  AND v_day >= c.created_at
                   AND (c.recurrence_days IS NULL
                        OR EXTRACT(ISODOW FROM v_day)::INT = ANY(c.recurrence_days));
             END LOOP;

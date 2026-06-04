@@ -106,6 +106,7 @@ export default function EditTemplateScreen() {
   const [editingChore, setEditingChore] = useState<Chore | null>(null);
   const [choreForm, setChoreForm] = useState<ChoreFormState>(defaultChoreForm());
   const [isSavingChore, setIsSavingChore] = useState(false);
+  const [addToCurrentWeek, setAddToCurrentWeek] = useState(true);
 
   const isAdmin = activeMember?.is_admin || activeMember?.role === 'parent';
   const numericId = parseInt(templateId || '', 10);
@@ -175,6 +176,7 @@ export default function EditTemplateScreen() {
   const openAddModal = () => {
     setChoreForm(defaultChoreForm());
     setEditingChore(null);
+    setAddToCurrentWeek(true);
     setChoreModal('add');
   };
 
@@ -198,12 +200,25 @@ export default function EditTemplateScreen() {
     setChoreForm(defaultChoreForm());
   };
 
+  const getNextMondayStr = (): string => {
+    const d = new Date();
+    const day = d.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+    // If today is Sunday (0), next Monday is in 1 day. Otherwise, next Monday is in 8 - day days.
+    const diff = (day === 0 ? 1 : 8 - day);
+    const nextMon = new Date(d);
+    nextMon.setDate(d.getDate() + diff);
+    const y = nextMon.getFullYear();
+    const m = String(nextMon.getMonth() + 1).padStart(2, '0');
+    const date = String(nextMon.getDate()).padStart(2, '0');
+    return `${y}-${m}-${date}`;
+  };
+
   const handleSaveChore = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!template || !choreForm.title.trim()) return;
     setIsSavingChore(true);
 
-    const payload = {
+    const payload: any = {
       title: choreForm.title.trim(),
       description: choreForm.description.trim() || null,
       extra_reward: parseInt(choreForm.extra_reward, 10) || 0,
@@ -220,6 +235,13 @@ export default function EditTemplateScreen() {
     };
 
     if (choreModal === 'add') {
+      // If "Add to Current Week" is unchecked, we defer generation to next week
+      // by setting created_at to next Monday. If checked, we let the database
+      // default to CURRENT_DATE so it starts generating instances from today.
+      if (!addToCurrentWeek) {
+        payload.created_at = getNextMondayStr();
+      }
+
       const { data, error: insErr } = await supabase
         .from('chores')
         .insert({ ...payload, template_id: template.id })
@@ -231,6 +253,19 @@ export default function EditTemplateScreen() {
         alert('Could not add chore. Please try again.');
       } else {
         setChores(prev => [...prev, data as Chore]);
+
+        // If "Add to Current Week" is checked, we immediately trigger the
+        // generate_week_chores merge RPC to populate instances for the current week.
+        if (addToCurrentWeek) {
+          const { error: genErr } = await supabase.rpc('generate_week_chores', {
+            p_family_id: template.family_id,
+            p_member_id: template.member_id,
+          });
+          if (genErr) {
+            console.error('Error generating chores after add:', genErr);
+          }
+        }
+
         closeModal();
       }
     } else if (choreModal === 'edit' && editingChore) {
@@ -673,6 +708,28 @@ export default function EditTemplateScreen() {
                   <div className="w-11 h-6 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-dark" />
                 </label>
               </div>
+              )}
+
+              {/* Add to current week toggle — only shown when adding a new chore */}
+              {choreModal === 'add' && (
+                <div className="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
+                  <div>
+                    <span className="block text-sm font-bold text-secondary">Add to Current Week</span>
+                    <span className="text-xs font-medium text-stone-500">
+                      Generate instances starting from today for the ongoing week
+                    </span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      id="chore-add-to-current-week-toggle"
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={addToCurrentWeek}
+                      onChange={e => setAddToCurrentWeek(e.target.checked)}
+                    />
+                    <div className="w-11 h-6 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500" />
+                  </label>
+                </div>
               )}
 
               {/* Actions */}
