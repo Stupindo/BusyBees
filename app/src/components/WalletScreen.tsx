@@ -122,7 +122,7 @@ const WalletScreen = () => {
 
       {/* Balance card */}
       <div className="bg-gradient-to-br from-accent to-accent-dark p-8 rounded-3xl shadow-lg border border-accent flex flex-col items-center justify-center min-h-[200px] text-white overflow-hidden relative mb-6">
-        <div className="absolute top-0 right-0 p-8 opacity-20">
+        <div className="absolute top-0 right-0 p-8 opacity-20 pointer-events-none">
           <span className="text-9xl">💎</span>
         </div>
         <div className="relative z-10 flex flex-col items-center">
@@ -143,7 +143,7 @@ const WalletScreen = () => {
               setRedeemGems(Math.min(10, balance));
               setIsRedeemModalOpen(true);
             }}
-            className="mt-6 bg-white text-accent font-bold py-2 px-6 rounded-full shadow-md hover:bg-stone-50 transition-colors text-sm"
+            className="mt-6 bg-white text-accent font-bold py-2 px-6 rounded-full shadow-md hover:bg-stone-50 transition-colors text-sm relative z-10"
           >
             💵 Redeem Cash
           </button>

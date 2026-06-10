@@ -204,7 +204,7 @@ export default function HiveReportScreen() {
 
                   {/* Earnings Card */}
                   <div className="bg-gradient-to-br from-accent to-accent-dark p-4 rounded-2xl shadow-sm border border-accent flex flex-col justify-center text-white relative overflow-hidden">
-                    <div className="absolute -right-2 -bottom-2 opacity-20">
+                    <div className="absolute -right-2 -bottom-2 opacity-20 pointer-events-none">
                       <Award className="w-16 h-16" />
                     </div>
                     <div className="relative z-10">
