@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useFamily } from '../contexts/FamilyContext';
-import { Shield, Zap, ArrowLeft, Loader2, Award, ChevronDown, ChevronUp, CheckCircle2, XCircle, Camera, Clock } from 'lucide-react';
+import { Shield, Zap, ArrowLeft, Loader2, Award, ChevronDown, ChevronUp, CheckCircle2, XCircle, Camera, Clock, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 function getMondayOfCurrentWeek(): string {
@@ -15,6 +15,13 @@ function getMondayOfCurrentWeek(): string {
   const m = String(monday.getMonth() + 1).padStart(2, '0');
   const d = String(monday.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+}
+
+function formatChoreDate(dateStr: string | null): string {
+  if (!dateStr) return 'Weekly';
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 export default function HiveReportScreen() {
@@ -260,6 +267,11 @@ export default function HiveReportScreen() {
                                       <span className="text-[10px] bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Bonus</span>
                                     )}
                                   </div>
+
+                                  <p className="text-[10px] text-stone-500 font-semibold mb-1 flex items-center gap-1">
+                                    <Calendar className="w-3.5 h-3.5 text-stone-400 flex-shrink-0" />
+                                    <span>{formatChoreDate(chore.instance_date)}</span>
+                                  </p>
                                   
                                   {chore.completed_at && (
                                     <p className="text-[10px] font-medium text-stone-400 mb-1">
