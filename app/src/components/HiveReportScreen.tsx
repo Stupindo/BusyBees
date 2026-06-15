@@ -1,20 +1,56 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useFamily } from '../contexts/FamilyContext';
-import { Shield, Zap, ArrowLeft, Loader2, Award, ChevronDown, ChevronUp, CheckCircle2, XCircle, Camera, Clock, Calendar } from 'lucide-react';
+import { Shield, Zap, ArrowLeft, Loader2, Award, ChevronDown, ChevronUp, CheckCircle2, XCircle, Camera, Clock, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-function getMondayOfCurrentWeek(): string {
-  const today = new Date();
-  const day = today.getDay();
+function getMondayOfWeek(d: Date): Date {
+  const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + diff);
-  // Return YYYY-MM-DD
-  const y = monday.getFullYear();
-  const m = String(monday.getMonth() + 1).padStart(2, '0');
-  const d = String(monday.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diff);
+  return monday;
+}
+
+function formatDateToYYYYMMDD(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dateVal = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dateVal}`;
+}
+
+function getMondayOfCurrentWeek(): string {
+  return formatDateToYYYYMMDD(getMondayOfWeek(new Date()));
+}
+
+function addWeeks(dateStr: string, weeks: number): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + (weeks * 7));
+  return formatDateToYYYYMMDD(date);
+}
+
+function formatWeekRange(mondayStr: string): string {
+  const [year, month, day] = mondayStr.split('-').map(Number);
+  const start = new Date(year, month - 1, day);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+
+  const startMonth = start.toLocaleDateString('en-US', { month: 'short' });
+  const startDay = start.getDate();
+  const startYear = start.getFullYear();
+
+  const endMonth = end.toLocaleDateString('en-US', { month: 'short' });
+  const endDay = end.getDate();
+  const endYear = end.getFullYear();
+
+  if (startYear !== endYear) {
+    return `${startMonth} ${startDay}, ${startYear} – ${endMonth} ${endDay}, ${endYear}`;
+  }
+  if (startMonth !== endMonth) {
+    return `${startMonth} ${startDay} – ${endMonth} ${endDay}, ${startYear}`;
+  }
+  return `${startMonth} ${startDay} – ${endDay}, ${startYear}`;
 }
 
 function formatChoreDate(dateStr: string | null): string {
@@ -31,15 +67,25 @@ export default function HiveReportScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [reportData, setReportData] = useState<any[]>([]);
   const [expandedMemberId, setExpandedMemberId] = useState<number | null>(null);
+  const [selectedWeekStr, setSelectedWeekStr] = useState<string>(getMondayOfCurrentWeek());
 
   const isAdmin = activeMember?.is_admin || activeMember?.role === 'parent';
+
+  const handlePrevWeek = () => {
+    setSelectedWeekStr(prev => addWeeks(prev, -1));
+  };
+
+  const handleNextWeek = () => {
+    setSelectedWeekStr(prev => addWeeks(prev, 1));
+  };
 
   const fetchReport = useCallback(async () => {
     if (!activeFamily?.id) return;
     setIsLoading(true);
 
-    const weekStartStr = getMondayOfCurrentWeek();
+    const weekStartStr = selectedWeekStr;
     const weekStartMs = new Date(weekStartStr).getTime();
+    const weekEndMs = weekStartMs + 7 * 24 * 60 * 60 * 1000;
 
     // 1. Fetch members
     const { data: members, error: membersErr } = await supabase
@@ -102,7 +148,7 @@ export default function HiveReportScreen() {
           totalBalance += t.amount;
           
           const txTime = new Date(t.created_at).getTime();
-          if (txTime >= weekStartMs) {
+          if (txTime >= weekStartMs && txTime < weekEndMs) {
             weeklyEarnings += t.amount;
           }
         } else {
@@ -122,7 +168,7 @@ export default function HiveReportScreen() {
 
     setReportData(processed);
     setIsLoading(false);
-  }, [activeFamily?.id]);
+  }, [activeFamily?.id, selectedWeekStr]);
 
   useEffect(() => {
     fetchReport();
@@ -145,7 +191,7 @@ export default function HiveReportScreen() {
       </div>
 
       <div className="flex-1 p-6 pb-28 overflow-y-auto">
-        {isLoading ? (
+        {isLoading && reportData.length === 0 ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
@@ -231,7 +277,50 @@ export default function HiveReportScreen() {
                 {/* Expanded Chores List */}
                 {isAdmin && isExpanded && (
                   <div className="bg-white border-t border-stone-100 p-5">
-                    <h4 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-4">This Week's Chores</h4>
+                    {/* Week Navigation */}
+                    <div className="bg-stone-50 rounded-2xl border border-stone-100 p-3 mb-5 flex items-center justify-between">
+                      <button
+                        onClick={handlePrevWeek}
+                        disabled={isLoading}
+                        className="w-8 h-8 flex items-center justify-center bg-white text-stone-600 rounded-lg hover:bg-stone-100 transition-colors border border-stone-200 shadow-sm disabled:opacity-50"
+                        aria-label="Previous Week"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      
+                      <div className="text-center flex items-center gap-2">
+                        {isLoading ? (
+                          <div className="flex items-center gap-1.5 py-0.5">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-stone-400" />
+                            <span className="text-xs font-semibold text-stone-400">Loading...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="text-xs font-black text-secondary">
+                              {formatWeekRange(selectedWeekStr)}
+                            </span>
+                            {selectedWeekStr === getMondayOfCurrentWeek() && (
+                              <span className="bg-amber-100 text-amber-800 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                                Current Week
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={handleNextWeek}
+                        disabled={isLoading}
+                        className="w-8 h-8 flex items-center justify-center bg-white text-stone-600 rounded-lg hover:bg-stone-100 transition-colors border border-stone-200 shadow-sm disabled:opacity-50"
+                        aria-label="Next Week"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <h4 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-4">
+                      {selectedWeekStr === getMondayOfCurrentWeek() ? "This Week's Chores" : "Chores for this Week"}
+                    </h4>
                     {member.chores.length === 0 ? (
                       <p className="text-sm text-stone-400 italic">No chores assigned this week.</p>
                     ) : (

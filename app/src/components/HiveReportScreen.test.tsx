@@ -141,4 +141,81 @@ describe('HiveReportScreen', () => {
     // Verify weekly chore displays 'Weekly'
     expect(screen.getByText('Weekly')).toBeInTheDocument();
   });
+
+  it('navigates weeks using backward and forward buttons', async () => {
+    const mockMembers = [
+      {
+        id: 10,
+        family_id: 1,
+        role: 'parent',
+        is_admin: true,
+        custom_name: 'Parent Bee',
+        avatar: '👑',
+      },
+    ];
+
+    const mockEq = vi.fn().mockResolvedValue({ data: [], error: null });
+    const mockInChore = vi.fn().mockReturnValue({ eq: mockEq });
+    const mockSelectChore = vi.fn().mockReturnValue({ in: mockInChore });
+    
+    const mockFrom = vi.fn((table: string) => {
+      if (table === 'members') {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: () => Promise.resolve({ data: mockMembers, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === 'chore_instances') {
+        return {
+          select: mockSelectChore,
+        };
+      }
+      if (table === 'transactions') {
+        return {
+          select: () => ({
+            in: () => Promise.resolve({ data: [], error: null }),
+          }),
+        };
+      }
+      return { select: () => Promise.resolve({ data: [], error: null }) };
+    });
+
+    (supabase.from as any).mockImplementation(mockFrom);
+
+    render(
+      <MemoryRouter>
+        <HiveReportScreen />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Parent Bee')).toBeInTheDocument();
+    });
+
+    // Expand Parent Bee to render the week navigation controls
+    const memberRow = screen.getByText('Parent Bee');
+    fireEvent.click(memberRow);
+
+    await waitFor(() => {
+      expect(screen.getByText('Current Week')).toBeInTheDocument();
+    });
+
+    const prevButton = screen.getByLabelText('Previous Week');
+    fireEvent.click(prevButton);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Current Week')).not.toBeInTheDocument();
+      expect(mockEq).toHaveBeenCalled();
+    });
+
+    const nextButton = screen.getByLabelText('Next Week');
+    fireEvent.click(nextButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Current Week')).toBeInTheDocument();
+    });
+  });
 });
