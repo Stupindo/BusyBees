@@ -10,6 +10,10 @@ vi.mock('./AuthProvider', () => ({
   useAuth: vi.fn(() => ({ session: { user: { id: 'admin1' } } })),
 }));
 
+vi.mock('./ShareFamilyCode', () => ({
+  default: () => <div data-testid="share-family-code">Share Family Code Mock</div>,
+}));
+
 vi.mock('../contexts/FamilyContext', () => ({
   useFamily: vi.fn(() => ({ 
     activeFamily: { id: 1, name: 'The Smiths' },
@@ -65,5 +69,8 @@ describe('ManageMembersScreen', () => {
 
     // Verify role / admin badges
     expect(screen.getByText('Admin')).toBeInTheDocument();
+
+    // Verify ShareFamilyCode is rendered
+    expect(screen.getByTestId('share-family-code')).toBeInTheDocument();
   });
 });

@@ -4,6 +4,7 @@ import { useFamily } from '../contexts/FamilyContext';
 import type { Member } from '../contexts/FamilyContext';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Shield, Edit2, Trash2 } from 'lucide-react';
+import ShareFamilyCode from './ShareFamilyCode';
 
 export default function ManageMembersScreen() {
   const { activeFamily, activeMember, refreshFamilies } = useFamily();
@@ -163,54 +164,57 @@ export default function ManageMembersScreen() {
         ) : error ? (
           <div className="text-red-500 text-center font-bold">{error}</div>
         ) : (
-          <div className="space-y-4">
-            {members.map(member => (
-              <div key={member.id} className="bg-white p-5 rounded-3xl shadow-sm border border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-inner ${member.role === 'parent' ? 'bg-gradient-to-br from-primary-light to-primary' : 'bg-stone-100'}`}>
-                     {member.avatar || (member.role === 'parent' ? '👑' : '🐝')}
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-secondary flex items-center gap-2">
-                      {getDisplayName(member)}
-                      {member.id === activeMember.id && (
-                        <span className="text-[10px] bg-primary/20 text-primary-dark px-2 py-0.5 rounded-full uppercase tracking-wider font-extrabold ml-1">You</span>
-                      )}
-                    </h3>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs font-semibold text-stone-500 uppercase tracking-widest">{member.role}</span>
-                      {member.is_admin && (
-                         <span className="flex items-center text-[10px] bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full font-bold">
-                           <Shield className="w-3 h-3 mr-1" /> Admin
-                         </span>
-                      )}
+          <div className="space-y-6">
+            <div className="space-y-4">
+              {members.map(member => (
+                <div key={member.id} className="bg-white p-5 rounded-3xl shadow-sm border border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-inner ${member.role === 'parent' ? 'bg-gradient-to-br from-primary-light to-primary' : 'bg-stone-100'}`}>
+                       {member.avatar || (member.role === 'parent' ? '👑' : '🐝')}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-secondary flex items-center gap-2">
+                        {getDisplayName(member)}
+                        {member.id === activeMember.id && (
+                          <span className="text-[10px] bg-primary/20 text-primary-dark px-2 py-0.5 rounded-full uppercase tracking-wider font-extrabold ml-1">You</span>
+                        )}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs font-semibold text-stone-500 uppercase tracking-widest">{member.role}</span>
+                        {member.is_admin && (
+                           <span className="flex items-center text-[10px] bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full font-bold">
+                             <Shield className="w-3 h-3 mr-1" /> Admin
+                           </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-                
-                {/* Actions allowed if current user is admin, or if it's our own record */}
-                {(isAdmin || member.id === activeMember.id) && (
-                  <div className="flex items-center gap-2 self-end sm:self-auto">
-                    <button 
-                      onClick={() => handleEditClick(member)}
-                      className="p-2 text-stone-400 hover:text-primary hover:bg-primary-light/30 rounded-xl transition-colors"
-                      title="Edit Member"
-                    >
-                      <Edit2 className="w-5 h-5" />
-                    </button>
-                    {isAdmin && member.id !== activeMember.id && (
+                  
+                  {/* Actions allowed if current user is admin, or if it's our own record */}
+                  {(isAdmin || member.id === activeMember.id) && (
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
                       <button 
-                        onClick={() => handleRemove(member.id)}
-                        className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                        title="Remove Member"
+                        onClick={() => handleEditClick(member)}
+                        className="p-2 text-stone-400 hover:text-primary hover:bg-primary-light/30 rounded-xl transition-colors"
+                        title="Edit Member"
                       >
-                        <Trash2 className="w-5 h-5" />
+                        <Edit2 className="w-5 h-5" />
                       </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+                      {isAdmin && member.id !== activeMember.id && (
+                        <button 
+                          onClick={() => handleRemove(member.id)}
+                          className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                          title="Remove Member"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <ShareFamilyCode />
           </div>
         )}
       </div>

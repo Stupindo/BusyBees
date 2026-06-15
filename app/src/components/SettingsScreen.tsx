@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 import { useFamily } from '../contexts/FamilyContext';
-import ShareFamilyCode from './ShareFamilyCode';
 import { supabase } from '../lib/supabase';
 
 const SettingsScreen = () => {
@@ -87,8 +86,6 @@ const SettingsScreen = () => {
         <h1 className="text-3xl font-extrabold text-secondary tracking-tight mb-1">Family Setup</h1>
         <p className="text-stone-500 font-medium text-sm">Manage the {activeFamily?.name || ''} hive settings.</p>
       </div>
-
-      <ShareFamilyCode />
       
       <div className="bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden mb-6">
         <ul className="divide-y divide-stone-100">
